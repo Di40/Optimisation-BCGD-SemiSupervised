@@ -1,12 +1,12 @@
-import random
 import numpy as np
 from numpy.random import randn
 from pandas import DataFrame
 from matplotlib import pyplot as plt
-import pandas as pd
 from time import process_time
 from tqdm.auto import tqdm
 import math
+
+
 
 def data_generation(n_points=1000, subset_size=0.02):
     points_dict = {}
@@ -174,33 +174,231 @@ def plot_loss(loss_list, algorithm, acc, alpha, grad_thres, cpu_time_list=[]):
 
 
 if __name__ == '__main__':
-    print("Start:")
-    alpha = 1e-6
-    grad_thres = 0.0005
-    iterations = 10
-    algorithms = ['Gradient Descent', 'RBCGD']
-    algorithm = algorithms[1]
-    dict_unlabeled, dict_labeled, dict_test, dict_similarity_weights = setup_points(n_points=1000, subset_size=0.01)
-    loss_list, cpu_time_list = rbcgd(dict_unlabeled, dict_labeled, dict_similarity_weights,
-                                     iterations=iterations,
-                                     alpha=alpha,
-                                     grad_thres=grad_thres)
+    # print("Start:")
+    # alpha = 1e-6
+    # grad_thres = 0.0005
+    # iterations = 10
+    # algorithms = ['Gradient Descent', 'RBCGD']
+    # algorithm = algorithms[1]
+    # dict_unlabeled, dict_labeled, dict_test, dict_similarity_weights = setup_points(n_points=1000, subset_size=0.01)
+    # loss_list, cpu_time_list = rbcgd(dict_unlabeled, dict_labeled, dict_similarity_weights,
+    #                                  iterations=iterations,
+    #                                  alpha=alpha,
+    #                                  grad_thres=grad_thres)
+    #
+    # dict_unlabeled = {x_j: 1 if y_j >= 0 else -1 for x_j, y_j in dict_unlabeled.items()}
+    # all_points = {**dict_labeled, **dict_unlabeled}
+    # all_points_list = [[key[0], key[1]] for key in all_points.keys()]
+    # all_points_list = np.array(all_points_list)
+    # plotting(all_points_list, all_points.values())
+    #
+    # acc = calculate_accuracy(dict_test, dict_unlabeled)
+    # # Accuracy/Loss vs Iterations
+    # plot_loss(loss_list, algorithm, acc, alpha, grad_thres)
+    # # Accuracy/Loss vs CPU Time
+    # plot_loss(loss_list, algorithm, acc, alpha, grad_thres, cpu_time_list=cpu_time_list)
+    # print("Finished.")
 
-    dict_unlabeled = {x_j: 1 if y_j >= 0 else -1 for x_j, y_j in dict_unlabeled.items()}
-    all_points = {**dict_labeled, **dict_unlabeled}
-    all_points_list = [[key[0], key[1]] for key in all_points.keys()]
-    all_points_list = np.array(all_points_list)
-    plotting(all_points_list, all_points.values())
-
-    acc = calculate_accuracy(dict_test, dict_unlabeled)
-    # Accuracy/Loss vs Iterations
-    plot_loss(loss_list, algorithm, acc, alpha, grad_thres)
-    # Accuracy/Loss vs CPU Time
-    plot_loss(loss_list, algorithm, acc, alpha, grad_thres, cpu_time_list=cpu_time_list)
-    print("Finished.")
+    from sklearn.datasets import make_blobs
+    from sklearn.metrics import euclidean_distances
 
 
+    class Descent:
+        def __init__(self,total_samples=1000,unlabelled_ratio=0.9, learning_rate=1e-5, threshold=1e-5,max_iterations=100):
+
+            # create data parameters
+            self.total_samples = total_samples
+            self.unlabelled_ratio = unlabelled_ratio
+            self.x = []
+            self.y = None
+            self.unlabeled_indices = []
+            self.labeled_indices = []
+            self.true_labels_of_unlabeled =[]
+
+            # weight matrices
+            self.weight_lu = None
+            self.weight_uu = None
+
+            # optimizor parameters
+            self.learning_rate = learning_rate
+            self.threshold = threshold
+            self.max_iterations= max_iterations
+            self.name = "Descent"
+
+            # results parameters
+            self.loss = []
+            self.cpu_time = []
+            self.accuracy  = []
+
+
+        def create_data(self):
+
+            # generate random data points with 2 features and 2 labels
+            self.x, self.y = make_blobs(n_samples=self.total_samples,n_features=2, centers=2, cluster_std=1.5)
+
+
+            # plot the data points in a 2D scatter plot
+            #plt.scatter(self.x[:, 0], self.x[:, 1], c=self.y)
+            #plt.show()
+
+            # set the seed for reproducibility
+            #np.random.seed(6)
+
+            # make %90 of data points unlabeled
+            num_unlabeled_samples = int(self.unlabelled_ratio * self.total_samples)
+
+            # all_indices = labeled indices + unlabeled indices
+            self.unlabeled_indices = np.random.choice(self.total_samples, size=num_unlabeled_samples, replace=False)
+            self.labeled_indices = np.array(list(set(np.array(range(self.total_samples))) - set(self.unlabeled_indices)))
+
+            # hold initially labeled then unlabeled points
+            self.true_labels_of_unlabeled = np.copy(self.y[self.unlabeled_indices])
+
+            # assign initialization labels to unlabeled indices
+            self.y = self.y.astype(float)
+            self.y[self.unlabeled_indices] = np.random.uniform(-1.0,1.0, size=num_unlabeled_samples)
+
+
+        def create_similarity_matrices(self):
+            eps = 1e-8  # not to get 0 in denominator
+            self.weight_lu = 1 / (euclidean_distances(self.x[self.labeled_indices], self.x[self.unlabeled_indices]) + eps)
+            self.weight_uu = 1 / (euclidean_distances(self.x[self.unlabeled_indices], self.x[self.unlabeled_indices]) + eps)
+
+
+        def calculate_loss(self):
+            Y_unlabeled = np.copy(self.y[self.unlabeled_indices]).astype("float32").reshape((-1, 1))  # shape (len(unlabeled),1)
+            Y_labeled = np.copy(self.y[self.labeled_indices]).astype("float32").reshape((-1, 1))  # shape (len(labeled),1)
+
+            # Calculate first double sum
+            y_diff = np.power((Y_unlabeled - Y_labeled.T),2)  # shape (len(unlabeled),len(labeled))
+            loss_lu = np.sum(y_diff * self.weight_lu.T)
+
+            # Calculate second double sum
+            y_diff = np.power(Y_unlabeled - Y_unlabeled.T,2)
+            loss_uu = np.sum(y_diff * self.weight_uu.T)
+
+            self.loss.append(loss_lu + loss_uu/2)
+
+
+        def calculate_accuracy(self):
+            num_correct = np.sum(np.round(self.y[self.unlabeled_indices]) == self.true_labels_of_unlabeled)
+            self.accuracy.append(num_correct / len(self.true_labels_of_unlabeled))
+
+
+        def calculate_gradient(self):
+            raise NotImplementedError("Subclass must implement abstract method")
+
+        def optimize(self):
+            raise NotImplementedError("Subclass must implement abstract method")
+
+        def plot_loss(self):
+
+                num_iterations = len(self.loss)
+
+                fig, ax = plt.subplots()
+                plt.grid(alpha=0.3)
+                ax.set_title(
+                    '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\nGradient threshold: {}\nIterations: {}'
+                    .format(self.name,
+                  self.accuracy[-1] * 100,
+                  self.learning_rate,
+                  self.threshold,
+                  num_iterations))
+
+                ax.set_ylabel("Loss")
+
+                plt.plot(self.loss, color='blue', marker='o', markerfacecolor='r')
+                ax.set_xlabel("Number of iterations")
+                filename = '{}_acc{:.2f}_alpha{}_num_iter{}.png'.format(self.name,self.accuracy[-1] * 100, self.learning_rate, num_iterations)
+
+                plt.savefig(filename)  # save the graph as an image with the parameters in the filename
+                plt.show()
+
+                number_labelled= self.total_samples-self.total_samples*self.unlabelled_ratio
+                number_unlabelled = self.total_samples*self.unlabelled_ratio
+                # save the parameters and accuracy to a text file with the same filename as the image
+                with open(filename.replace('.png', '.txt'), 'w') as f:
+                    f.write('Learning Rate: {}\n'.format(self.learning_rate))
+                    f.write('Iterations: {}\n'.format(num_iterations))
+                    f.write('Loss: {}\n'.format(self.loss[-1]))
+                    f.write('Accuracy: {:.2f}%\n'.format(self.accuracy[-1] * 100))
+                    f.write('Number of Samples:{}\n'.format(self.total_samples))
+                    f.write('Number of Unlabelled-Labelled: {d}-{d}\n'.format(number_unlabelled,number_labelled))
+
+
+    class GradientDescent(Descent):
+        def __init__(self,total_samples=1000,unlabelled_ratio=0.9, learning_rate=1e-5, threshold=1e-5,max_iterations=100):
+            super().__init__()
+            self.learning_rate = learning_rate
+            self.threshold = threshold
+            self.max_iterations= max_iterations
+            self.name="GradientDescent"
+
+            self.total_samples = total_samples
+            self.unlabelled_ratio = unlabelled_ratio
+
+            self.gradient=[]
+
+        def calculate_gradient(self,i):
+            grad_lu = np.sum((self.y[self.unlabeled_indices[i]] - self.y[self.labeled_indices]) * self.weight_lu.T[i])
+            grad_uu = np.sum(
+                (self.y[self.unlabeled_indices[i]] - self.y[self.unlabeled_indices]) * self.weight_uu.T[i])
+            self.gradient.append(grad_lu * 2 + grad_uu)
+
+        def optimize(self):
+
+            self.create_data()
+            self.create_similarity_matrices()
+            stop_condition = False
+            ITERATION = 0
+
+            while ITERATION <= self.max_iterations:
+                ITERATION += 1
+                stop_condition = False
+
+                # Check the stop condition
+                if stop_condition:
+                    break
+
+                # Compute objective function for estimated y
+                self.calculate_loss()
+                self.calculate_accuracy()
+
+                for i in range(len(self.unlabeled_indices)):
+
+                    # Calculate gradient with respect to i
+                    self.calculate_gradient(i)
+
+                    # Stopping condition
+                    if abs(self.gradient[-1]) < self.threshold:
+                        stop_condition = True
+
+                    # Update the estimated y
+                    self.y[self.unlabeled_indices[i]] = self.y[self.unlabeled_indices[i]] - self.learning_rate * self.gradient[-1]
+
+                print("iteration: {} --- accuracy: {:.3f} ---- loss: {:.3f} --- next_stepsize: {}"
+                      .format(ITERATION,
+                      self.accuracy[-1],
+                      self.loss[-1],
+                      self.learning_rate)
+                )
+
+
+    # TODO: CPU time list implementation
+    # TODO: CPU time list plot
+    # TODO: plot function to show unlabelled points graph
+    # TODO: class Randomized BCGD
+    # TODO: class Gauss Sauthwell BCGD
+    # TODO: write docstrings for classes and functions
+    # TODO: step size choice with different methods
+    # TODO: threshold does not seem so logical, we should consider smarter way
+
+
+    x = GradientDescent(total_samples=5000,unlabelled_ratio=0.8,
+                        learning_rate=1e-5,threshold=0.0001,max_iterations=50)
+    x.optimize()
+    x.plot_loss()
 
 
 
-
+    print("end")
