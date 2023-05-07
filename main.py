@@ -238,11 +238,11 @@ if __name__ == '__main__':
         def create_data(self):
 
             # generate random data points with 2 features and 2 labels
-            self.x, self.y = make_blobs(n_samples=self.total_samples,n_features=2, centers=2, cluster_std=4,random_state = 10)
+            self.x, self.y = make_blobs(n_samples=self.total_samples,n_features=2, centers=2, cluster_std=1,random_state = 10)
 
 
             # plot the data points in a 2D scatter plot
-            # plt.scatter(self.x[:, 0], self.x[:, 1])
+            plt.scatter(self.x[:, 0], self.x[:, 1])
             #plt.show()
 
             # set the seed for reproducibility
@@ -313,7 +313,7 @@ if __name__ == '__main__':
             if save_plot:
                 now = datetime.datetime.now()
                 time_str = now.strftime("%m.%d.2023-%H.%M")
-                filename = '{}_date {}, acc {}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
+                filename = 'LossPlot_{}_date {}, acc {}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
                 plt.savefig(filename)  # save the graph as an image with the parameters in the filename
 
             plt.show()
@@ -336,10 +336,34 @@ if __name__ == '__main__':
             if save_plot:
                 now = datetime.datetime.now()
                 time_str = now.strftime("%m.%d.2023-%H.%M")
-                filename = '{}_date {}, acc {}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
+                filename = 'AccPlot_{}_date {}, acc {}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
                 plt.savefig(filename)  # save the graph as an image with the parameters in the filename
 
             plt.show()
+
+        def plot_cpu_time(self,save_plot):
+
+            fig, ax = plt.subplots()
+            plt.grid(alpha=0.3)
+            ax.set_title(
+                '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\nGradient threshold: {}\nIterations: {}'
+                .format(self.name,
+                        self.accuracy[-1] * 100,
+                        self.learning_rate,
+                        self.threshold,
+                        self.iterations_made))
+            ax.set_ylabel("Loss")
+            ax.set_xlabel("CPU Time")
+            plt.plot(np.cumsum(self.cpu_time),self.loss, color='blue', marker='o', markerfacecolor='r')
+
+            if save_plot:
+                now = datetime.datetime.now()
+                time_str = now.strftime("%m.%d.2023-%H.%M")
+                filename = 'TimePlot_{}_date {}, acc {}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
+                plt.savefig(filename)  # save the graph as an image with the parameters in the filename
+
+            plt.show()
+
 
         def save_output(self):
 
@@ -388,10 +412,13 @@ if __name__ == '__main__':
 
         def optimize(self):
 
+
             stop_condition = False
             ITERATION = 0
 
             while ITERATION < self.max_iterations:
+
+                t_before = process_time()
                 ITERATION += 1
                 stop_condition = False
 
@@ -421,6 +448,8 @@ if __name__ == '__main__':
                       self.loss[-1],
                       self.learning_rate)
                 )
+                t_after = process_time()
+                self.cpu_time.append(t_after - t_before)
 
 
     class Randomized_BCGD(Descent):
@@ -451,6 +480,8 @@ if __name__ == '__main__':
             ITERATION = 0
 
             while ITERATION < self.max_iterations:
+
+                t_before = process_time()
                 ITERATION += 1
                 stop_condition = False
 
@@ -483,13 +514,13 @@ if __name__ == '__main__':
                       self.loss[-1],
                       self.learning_rate)
                 )
+                t_after = process_time()
+                self.cpu_time.append(t_after - t_before)
 
 
 
-    # TODO: CPU time list implementation
-    # TODO: CPU time list plot
+
     # TODO: plot function to show unlabelled points graph
-    # TODO: class Randomized BCGD
     # TODO: class Gauss Sauthwell BCGD
     # TODO: write docstrings for classes and functions
     # TODO: step size choice with different methods
@@ -498,41 +529,36 @@ if __name__ == '__main__':
     # Save the current time
     print("RBCGD Start")
     start_time = time.time()
-    rbcgd = Randomized_BCGD(total_samples=10000,unlabelled_ratio=0.9,
-                         learning_rate=1e-5,threshold=0.0001,max_iterations=500)
-    rbcgd.create_data()
+    rbcgd = Randomized_BCGD(total_samples=2000,unlabelled_ratio=0.9,
+                         learning_rate=1e-5,threshold=0.0001,max_iterations=50)
     rbcgd.create_data()
     rbcgd.create_similarity_matrices()
     rbcgd.optimize()
     rbcgd.plot_loss(save_plot=True)
     rbcgd.plot_accuracy(save_plot=True)
+    rbcgd.plot_cpu_time(save_plot=True)
     rbcgd.save_output()
+
     elapsed_time = time.time() - start_time
 
     print(f"Time Spend:{elapsed_time}")
 
     print(f"*"*100)
 
-    print("Gradient Descent Start")
-    start_time = time.time()
-    gd = GradientDescent(total_samples=10000,unlabelled_ratio=0.9,
-                         learning_rate=1e-5,threshold=0.0001,max_iterations=500)
-    gd.create_data()
-    gd.create_similarity_matrices()
-    gd.optimize()
-    gd.plot_loss(save_plot=True)
-    gd.plot_accuracy(save_plot=True)
-    gd.save_output()
+    # print("Gradient Descent Start")
+    # start_time = time.time()
+    # gd = GradientDescent(total_samples=2000,unlabelled_ratio=0.9,
+    #                      learning_rate=1e-5,threshold=0.0001,max_iterations=500)
+    # gd.create_data()
+    # gd.create_similarity_matrices()
+    # gd.optimize()
+    # gd.plot_loss(save_plot=True)
+    # gd.plot_accuracy(save_plot=True)
+    # gd.save_output()
+    #
+    # elapsed_time = time.time() - start_time
+    # print(f"Time Spend:{elapsed_time}")
 
-    elapsed_time = time.time() - start_time
-    print(f"Time Spend:{elapsed_time}")
-
-
-
-
-    #print(f"*"*100)
-    #print(gd.y)
-    #print(bcgd.y)
 
 
 
