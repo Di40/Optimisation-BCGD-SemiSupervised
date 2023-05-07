@@ -206,6 +206,78 @@ if __name__ == '__main__':
 
 
     class Descent:
+        """
+        Class for implementing a descent algorithm for a semi-supervised learning task.
+
+        Parameters:
+        -----------
+        total_samples : int, optional
+            Total number of data points to generate (default is 1000).
+        unlabelled_ratio : float, optional
+            Ratio of data points to leave unlabeled (default is 0.9).
+        learning_rate : float, optional
+            Learning rate for the optimizer (default is 1e-5).
+        threshold : float, optional
+            Threshold for the optimizer to stop iterating (default is 1e-5).
+        max_iterations : int, optional
+            Maximum number of iterations for the optimizer to run (default is 100).
+
+        Methods:
+        --------
+        create_data()
+            Creates data points for the semi-supervised learning task.
+        create_similarity_matrices()
+            Creates similarity matrices for labeled and unlabeled data points.
+        calculate_loss()
+            Calculates the loss function for the current labels.
+        calculate_accuracy()
+            Calculates the accuracy of the current labels.
+        calculate_gradient()
+            Calculates the gradient for the current labels.
+        optimize()
+            Optimizes the labels using descent algorithm.
+        plot_loss(save_plot=False)
+            Plots the loss function over iterations.
+        plot_accuracy(save_plot=False)
+            Plots the accuracy over iterations.
+
+        Attributes:
+        -----------
+        total_samples : int
+            The total number of samples in the data set.
+        unlabelled_ratio : float
+            The proportion of the data set that is unlabelled (i.e., does not have a known output value).
+        x : list
+            The features of the data set.
+        y : None
+            The labels of the data set (if available).
+        unlabeled_indices : list
+            The indices of the unlabelled data points.
+        labeled_indices : list
+            The indices of the labelled data points.
+        true_labels_of_unlabeled : list
+            The true labels (if known) of the unlabelled data points.
+        weight_lu : None
+            The weight matrix for the labelled and unlabelled data.
+        weight_uu : None
+            The weight matrix for the unlabelled data only.
+        learning_rate : float
+            The step size used for gradient descent.
+        threshold : float
+            The convergence threshold for the algorithm.
+        max_iterations : int
+            The maximum number of iterations for the algorithm.
+        name : str
+            The name of the algorithm used for logging purposes.
+        loss : list
+            The loss function values at each iteration.
+        cpu_time : list
+            The CPU time used at each iteration.
+        accuracy : list
+            The accuracy of the model on the labelled data at each iteration.
+        iterations_made : int
+            The number of iterations completed so far.
+        """
         def __init__(self,total_samples=1000,unlabelled_ratio=0.9, learning_rate=1e-5, threshold=1e-5,max_iterations=100):
 
             # create data parameters
@@ -313,7 +385,7 @@ if __name__ == '__main__':
             if save_plot:
                 now = datetime.datetime.now()
                 time_str = now.strftime("%m.%d.2023-%H.%M")
-                filename = 'LossPlot_{}_date {}, acc {}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
+                filename = 'LossPlot_{}_date {}, acc {:.2f}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
                 plt.savefig(filename)  # save the graph as an image with the parameters in the filename
 
             plt.show()
@@ -336,7 +408,7 @@ if __name__ == '__main__':
             if save_plot:
                 now = datetime.datetime.now()
                 time_str = now.strftime("%m.%d.2023-%H.%M")
-                filename = 'AccPlot_{}_date {}, acc {}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
+                filename = 'AccPlot_{}_date {}, acc {:.2f}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
                 plt.savefig(filename)  # save the graph as an image with the parameters in the filename
 
             plt.show()
@@ -359,7 +431,7 @@ if __name__ == '__main__':
             if save_plot:
                 now = datetime.datetime.now()
                 time_str = now.strftime("%m.%d.2023-%H.%M")
-                filename = 'TimePlot_{}_date {}, acc {}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
+                filename = 'TimePlot_{}_date {}, acc {:.2f}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
                 plt.savefig(filename)  # save the graph as an image with the parameters in the filename
 
             plt.show()
@@ -518,11 +590,8 @@ if __name__ == '__main__':
                 self.cpu_time.append(t_after - t_before)
 
 
-
-
     # TODO: plot function to show unlabelled points graph
     # TODO: class Gauss Sauthwell BCGD
-    # TODO: write docstrings for classes and functions
     # TODO: step size choice with different methods
     # TODO: threshold does not seem so logical, we should consider smarter way
 
@@ -559,7 +628,7 @@ if __name__ == '__main__':
     # elapsed_time = time.time() - start_time
     # print(f"Time Spend:{elapsed_time}")
 
-
+    x = GradientDescent()
 
 
     print("end")
