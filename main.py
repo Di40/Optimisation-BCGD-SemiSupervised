@@ -303,8 +303,6 @@ if __name__ == '__main__':
             self.loss = []
             self.cpu_time = []
             self.accuracy  = []
-            self.iterations_made = len(self.loss)
-
 
 
         def create_data(self):
@@ -372,12 +370,11 @@ if __name__ == '__main__':
             fig, ax = plt.subplots()
             plt.grid(alpha=0.3)
             ax.set_title(
-                '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\nGradient threshold: {}\nIterations: {}'
+                '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\nGradient threshold: {}'
                 .format(self.name,
               self.accuracy[-1] * 100,
               self.learning_rate,
-              self.threshold,
-              self.iterations_made))
+              self.threshold))
             ax.set_ylabel("Loss")
             ax.set_xlabel("Number of iterations")
             plt.plot(self.loss, color='blue', marker='o', markerfacecolor='r')
@@ -395,12 +392,11 @@ if __name__ == '__main__':
             fig, ax = plt.subplots()
             plt.grid(alpha=0.3)
             ax.set_title(
-                '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\nGradient threshold: {}\nIterations: {}'
+                '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\nGradient threshold: {}'
                 .format(self.name,
                         self.accuracy[-1] * 100,
                         self.learning_rate,
-                        self.threshold,
-                        self.iterations_made))
+                        self.threshold))
             ax.set_ylabel("Accuracy")
             ax.set_xlabel("Number of iterations")
             plt.plot(self.accuracy, color='blue', marker='o', markerfacecolor='r')
@@ -418,12 +414,11 @@ if __name__ == '__main__':
             fig, ax = plt.subplots()
             plt.grid(alpha=0.3)
             ax.set_title(
-                '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\nGradient threshold: {}\nIterations: {}'
+                '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\nGradient threshold: {}'
                 .format(self.name,
                         self.accuracy[-1] * 100,
                         self.learning_rate,
-                        self.threshold,
-                        self.iterations_made))
+                        self.threshold))
             ax.set_ylabel("Loss")
             ax.set_xlabel("CPU Time")
             plt.plot(np.cumsum(self.cpu_time),self.loss, color='blue', marker='o', markerfacecolor='r')
@@ -441,7 +436,7 @@ if __name__ == '__main__':
 
             now = datetime.datetime.now()
             time_str = now.strftime("%m.%d.2023-%H.%M")
-            filename = '{}_date {}, acc {}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
+            filename = '{}_date {}, acc {:.2f}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
 
             number_labelled = self.total_samples - self.total_samples * self.unlabelled_ratio
             number_unlabelled = self.total_samples * self.unlabelled_ratio
@@ -467,7 +462,7 @@ if __name__ == '__main__':
 
             self.gradient=[]
 
-        def calculate_gradient(self,i):
+        def calculate_gradient(self):
             # shape : (self.y[self.unlabeled_indices] -> (len,)
             # shape: (self.y[self.unlabeled_indices].reshape((-1,1)) -> (len,1)
             # This helps us to use broadcasting
@@ -502,24 +497,22 @@ if __name__ == '__main__':
                 self.calculate_loss()
                 self.calculate_accuracy()
 
-                for i in range(len(self.unlabeled_indices)):
+                # Calculate gradient with respect to i
+                self.calculate_gradient()
 
-                    # Calculate gradient with respect to i
-                    self.calculate_gradient(i)
-
-                    # Stopping condition
-                    #if abs(self.gradient[-1]) < self.threshold:
-                    #    stop_condition = True
-
-                    # Update the estimated y
-                    self.y[self.unlabeled_indices] = self.y[self.unlabeled_indices] - self.learning_rate * self.gradient[-1]
+                # Update the estimated y
+                self.y[self.unlabeled_indices] = self.y[self.unlabeled_indices] - self.learning_rate * self.gradient[-1]
 
                 print("iteration: {} --- accuracy: {:.3f} ---- loss: {:.3f} --- next_stepsize: {}"
                       .format(ITERATION,
                       self.accuracy[-1],
                       self.loss[-1],
-                      self.learning_rate)
-                )
+                      self.learning_rate))
+
+                # Stopping condition
+                # if abs(self.gradient[-1]) < self.threshold:
+                #     stop_condition = True
+
                 t_after = process_time()
                 self.cpu_time.append(t_after - t_before)
 
@@ -565,41 +558,42 @@ if __name__ == '__main__':
                 self.calculate_loss()
                 self.calculate_accuracy()
 
-                for _ in range(len(self.unlabeled_indices)):
+                # Choosing random block
+                rand_block = np.random.randint(len(self.unlabeled_indices))
 
-                    # Choosing random block
-                    rand_block = np.random.randint(len(self.unlabeled_indices))
+                # Calculate gradient with respect to i
+                self.calculate_gradient(rand_block)
 
-                    # Calculate gradient with respect to i
-                    self.calculate_gradient(rand_block)
-
-                    # Stopping condition
-                    if abs(self.gradient[-1]) < self.threshold:
-                        stop_condition = True
-
-                    # Update the estimated y
-                    self.y[self.unlabeled_indices[rand_block]] = self.y[self.unlabeled_indices[rand_block]] - self.learning_rate * self.gradient[-1]
+                # Update the estimated y
+                self.y[self.unlabeled_indices[rand_block]] = self.y[self.unlabeled_indices[rand_block]] - self.learning_rate * self.gradient[-1]
 
                 print("iteration: {} --- accuracy: {:.3f} ---- loss: {:.3f} --- next_stepsize: {}"
                       .format(ITERATION,
                       self.accuracy[-1],
                       self.loss[-1],
-                      self.learning_rate)
-                )
+                      self.learning_rate))
+
+                # Stopping condition
+                # if abs(self.gradient[-1]) < self.threshold:
+                #     stop_condition = True
+
+
                 t_after = process_time()
                 self.cpu_time.append(t_after - t_before)
 
-
-    # TODO: plot function to show unlabelled points graph
+    # TODO: check the logics of RBCGD for calculating full gradient or not
+    # TODO: arrange threshold parts to stop iteration early
     # TODO: class Gauss Sauthwell BCGD
     # TODO: step size choice with different methods
-    # TODO: threshold does not seem so logical, we should consider smarter way
+    # TODO: correct the plot function showing all points with the same color wrongly
+    # TODO: plot function to show unlabelled points and labelled points together
+    # TODO: plot function to show unlabelled points after optimization
 
     # Save the current time
     print("RBCGD Start")
     start_time = time.time()
-    rbcgd = Randomized_BCGD(total_samples=2000,unlabelled_ratio=0.9,
-                         learning_rate=1e-5,threshold=0.0001,max_iterations=50)
+    rbcgd = Randomized_BCGD(total_samples=5000,unlabelled_ratio=0.9,
+                         learning_rate=1e-4,threshold=0.0001,max_iterations=100)
     rbcgd.create_data()
     rbcgd.create_similarity_matrices()
     rbcgd.optimize()
@@ -621,14 +615,13 @@ if __name__ == '__main__':
     # gd.create_data()
     # gd.create_similarity_matrices()
     # gd.optimize()
-    # gd.plot_loss(save_plot=True)
-    # gd.plot_accuracy(save_plot=True)
+    # gd.plot_loss(save_plot=False)
+    # gd.plot_accuracy(save_plot=False)
+    # gd.plot_cpu_time(save_plot=False)
     # gd.save_output()
     #
     # elapsed_time = time.time() - start_time
     # print(f"Time Spend:{elapsed_time}")
-
-    x = GradientDescent()
 
 
     print("end")

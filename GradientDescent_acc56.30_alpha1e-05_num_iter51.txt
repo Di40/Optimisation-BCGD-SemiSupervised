@@ -1,6 +1,0 @@
-Learning Rate: 1e-05
-Iterations: 51
-Loss: 749079.2002930684
-Accuracy: 56.30%
-Number of Samples:5000
-Number of Unlabelled-Labelled: 4000.0-1000.0
