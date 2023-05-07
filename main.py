@@ -201,6 +201,8 @@ if __name__ == '__main__':
 
     from sklearn.datasets import make_blobs
     from sklearn.metrics import euclidean_distances
+    import datetime
+    import time
 
 
     class Descent:
@@ -229,20 +231,22 @@ if __name__ == '__main__':
             self.loss = []
             self.cpu_time = []
             self.accuracy  = []
+            self.iterations_made = len(self.loss)
+
 
 
         def create_data(self):
 
             # generate random data points with 2 features and 2 labels
-            self.x, self.y = make_blobs(n_samples=self.total_samples,n_features=2, centers=2, cluster_std=1.5)
+            self.x, self.y = make_blobs(n_samples=self.total_samples,n_features=2, centers=2, cluster_std=4,random_state = 10)
 
 
             # plot the data points in a 2D scatter plot
-            #plt.scatter(self.x[:, 0], self.x[:, 1], c=self.y)
+            # plt.scatter(self.x[:, 0], self.x[:, 1])
             #plt.show()
 
             # set the seed for reproducibility
-            #np.random.seed(6)
+            np.random.seed(10)
 
             # make %90 of data points unlabeled
             num_unlabeled_samples = int(self.unlabelled_ratio * self.total_samples)
@@ -291,40 +295,68 @@ if __name__ == '__main__':
         def optimize(self):
             raise NotImplementedError("Subclass must implement abstract method")
 
-        def plot_loss(self):
+        def plot_loss(self,save_plot):
 
-                num_iterations = len(self.loss)
+            fig, ax = plt.subplots()
+            plt.grid(alpha=0.3)
+            ax.set_title(
+                '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\nGradient threshold: {}\nIterations: {}'
+                .format(self.name,
+              self.accuracy[-1] * 100,
+              self.learning_rate,
+              self.threshold,
+              self.iterations_made))
+            ax.set_ylabel("Loss")
+            ax.set_xlabel("Number of iterations")
+            plt.plot(self.loss, color='blue', marker='o', markerfacecolor='r')
 
-                fig, ax = plt.subplots()
-                plt.grid(alpha=0.3)
-                ax.set_title(
-                    '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\nGradient threshold: {}\nIterations: {}'
-                    .format(self.name,
-                  self.accuracy[-1] * 100,
-                  self.learning_rate,
-                  self.threshold,
-                  num_iterations))
-
-                ax.set_ylabel("Loss")
-
-                plt.plot(self.loss, color='blue', marker='o', markerfacecolor='r')
-                ax.set_xlabel("Number of iterations")
-                filename = '{}_acc{:.2f}_alpha{}_num_iter{}.png'.format(self.name,self.accuracy[-1] * 100, self.learning_rate, num_iterations)
-
+            if save_plot:
+                now = datetime.datetime.now()
+                time_str = now.strftime("%m.%d.2023-%H.%M")
+                filename = '{}_date {}, acc {}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
                 plt.savefig(filename)  # save the graph as an image with the parameters in the filename
-                plt.show()
 
-                number_labelled= self.total_samples-self.total_samples*self.unlabelled_ratio
-                number_unlabelled = self.total_samples*self.unlabelled_ratio
-                # save the parameters and accuracy to a text file with the same filename as the image
-                with open(filename.replace('.png', '.txt'), 'w') as f:
-                    f.write('Learning Rate: {}\n'.format(self.learning_rate))
-                    f.write('Iterations: {}\n'.format(num_iterations))
-                    f.write('Loss: {}\n'.format(self.loss[-1]))
-                    f.write('Accuracy: {:.2f}%\n'.format(self.accuracy[-1] * 100))
-                    f.write('Number of Samples:{}\n'.format(self.total_samples))
-                    f.write('Number of Unlabelled-Labelled: {}-{}\n'.format(number_unlabelled,number_labelled))
+            plt.show()
 
+        def plot_accuracy(self,save_plot):
+
+            fig, ax = plt.subplots()
+            plt.grid(alpha=0.3)
+            ax.set_title(
+                '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\nGradient threshold: {}\nIterations: {}'
+                .format(self.name,
+                        self.accuracy[-1] * 100,
+                        self.learning_rate,
+                        self.threshold,
+                        self.iterations_made))
+            ax.set_ylabel("Accuracy")
+            ax.set_xlabel("Number of iterations")
+            plt.plot(self.accuracy, color='blue', marker='o', markerfacecolor='r')
+
+            if save_plot:
+                now = datetime.datetime.now()
+                time_str = now.strftime("%m.%d.2023-%H.%M")
+                filename = '{}_date {}, acc {}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
+                plt.savefig(filename)  # save the graph as an image with the parameters in the filename
+
+            plt.show()
+
+        def save_output(self):
+
+            now = datetime.datetime.now()
+            time_str = now.strftime("%m.%d.2023-%H.%M")
+            filename = '{}_date {}, acc {}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
+
+            number_labelled = self.total_samples - self.total_samples * self.unlabelled_ratio
+            number_unlabelled = self.total_samples * self.unlabelled_ratio
+            # save the parameters and accuracy to a text file with the same filename as the image
+            with open(filename.replace('.png', '.txt'), 'w') as f:
+                f.write('Learning Rate: {}\n'.format(self.learning_rate))
+                f.write('Iterations: {}\n'.format(self.iterations_made))
+                f.write('Loss: {}\n'.format(self.loss[-1]))
+                f.write('Accuracy: {:.2f}%\n'.format(self.accuracy[-1] * 100))
+                f.write('Number of Samples:{}\n'.format(self.total_samples))
+                f.write('Number of Unlabelled-Labelled: {}-{}\n'.format(number_unlabelled, number_labelled))
 
     class GradientDescent(Descent):
         def __init__(self,total_samples=1000,unlabelled_ratio=0.9, learning_rate=1e-5, threshold=1e-5,max_iterations=100):
@@ -340,20 +372,26 @@ if __name__ == '__main__':
             self.gradient=[]
 
         def calculate_gradient(self,i):
-            # shape grad_lu --> scalar
-            grad_lu = np.sum((self.y[self.unlabeled_indices[i]] - self.y[self.labeled_indices]) # shape (scalar-vector number of labelled) = vector number of labelled
-                             * self.weight_lu.T[i])  # shape  vector num of labelled * vector num of labelled (for index i)= vector num of labelled
+            # shape : (self.y[self.unlabeled_indices] -> (len,)
+            # shape: (self.y[self.unlabeled_indices].reshape((-1,1)) -> (len,1)
+            # This helps us to use broadcasting
+            # shape : (self.y[self.unlabeled_indices].reshape((-1,1)) - self.y[self.labeled_indices] -> (len unlabelled, len labelled)
 
-            grad_uu = np.sum((self.y[self.unlabeled_indices[i]] - self.y[self.unlabeled_indices])
-                             * self.weight_uu.T[i]) # shape vector num of unlabelled
-            self.gradient.append(grad_lu * 2 + grad_uu)
+            weighted_diff = (self.y[self.unlabeled_indices].reshape((-1,1)) - self.y[self.labeled_indices])* self.weight_lu.T # shape (len unlabelled, len labelled)
+            grad_lu = np.sum(weighted_diff,axis=1) # shape (len unlabelled, 1)  , sum all columns
+
+            weighted_diff = (self.y[self.unlabeled_indices].reshape((-1,1)) - self.y[self.unlabeled_indices])* self.weight_uu.T # shape (len unlabelled, len unlabelled)
+            grad_uu = np.sum(weighted_diff,axis=1) # shape (len unlabelled, 1)  , sum all columns
+
+
+            self.gradient.append(grad_lu * 2 + grad_uu) # shape(len unlabelled,1)
 
         def optimize(self):
 
             stop_condition = False
             ITERATION = 0
 
-            while ITERATION <= self.max_iterations:
+            while ITERATION < self.max_iterations:
                 ITERATION += 1
                 stop_condition = False
 
@@ -371,11 +409,11 @@ if __name__ == '__main__':
                     self.calculate_gradient(i)
 
                     # Stopping condition
-                    if abs(self.gradient[-1]) < self.threshold:
-                        stop_condition = True
+                    #if abs(self.gradient[-1]) < self.threshold:
+                    #    stop_condition = True
 
                     # Update the estimated y
-                    self.y[self.unlabeled_indices[i]] = self.y[self.unlabeled_indices[i]] - self.learning_rate * self.gradient[-1]
+                    self.y[self.unlabeled_indices] = self.y[self.unlabeled_indices] - self.learning_rate * self.gradient[-1]
 
                 print("iteration: {} --- accuracy: {:.3f} ---- loss: {:.3f} --- next_stepsize: {}"
                       .format(ITERATION,
@@ -383,6 +421,69 @@ if __name__ == '__main__':
                       self.loss[-1],
                       self.learning_rate)
                 )
+
+
+    class Randomized_BCGD(Descent):
+        def __init__(self,total_samples=1000,unlabelled_ratio=0.9, learning_rate=1e-5, threshold=1e-5,max_iterations=100):
+            super().__init__()
+            self.learning_rate = learning_rate
+            self.threshold = threshold
+            self.max_iterations= max_iterations
+            self.name="BCGD"
+
+            self.total_samples = total_samples
+            self.unlabelled_ratio = unlabelled_ratio
+
+            self.gradient=[]
+
+        def calculate_gradient(self, block):
+            # shape grad_lu --> scalar
+            grad_lu = np.sum((self.y[self.unlabeled_indices[block]] - self.y[self.labeled_indices])  # shape (scalar-vector number of labelled) = vector number of labelled
+                             * self.weight_lu.T[block])  # shape  vector num of labelled * vector num of labelled (for block)= vector num of labelled
+
+            grad_uu = np.sum((self.y[self.unlabeled_indices[block]] - self.y[self.unlabeled_indices])
+                             * self.weight_uu.T[block]) # shape vector num of unlabelled
+            self.gradient.append(grad_lu * 2 + grad_uu)
+
+        def optimize(self):
+
+            stop_condition = False
+            ITERATION = 0
+
+            while ITERATION < self.max_iterations:
+                ITERATION += 1
+                stop_condition = False
+
+                # Check the stop condition
+                if stop_condition:
+                    break
+
+                # Compute objective function for estimated y
+                self.calculate_loss()
+                self.calculate_accuracy()
+
+                for _ in range(len(self.unlabeled_indices)):
+
+                    # Choosing random block
+                    rand_block = np.random.randint(len(self.unlabeled_indices))
+
+                    # Calculate gradient with respect to i
+                    self.calculate_gradient(rand_block)
+
+                    # Stopping condition
+                    if abs(self.gradient[-1]) < self.threshold:
+                        stop_condition = True
+
+                    # Update the estimated y
+                    self.y[self.unlabeled_indices[rand_block]] = self.y[self.unlabeled_indices[rand_block]] - self.learning_rate * self.gradient[-1]
+
+                print("iteration: {} --- accuracy: {:.3f} ---- loss: {:.3f} --- next_stepsize: {}"
+                      .format(ITERATION,
+                      self.accuracy[-1],
+                      self.loss[-1],
+                      self.learning_rate)
+                )
+
 
 
     # TODO: CPU time list implementation
@@ -393,14 +494,45 @@ if __name__ == '__main__':
     # TODO: write docstrings for classes and functions
     # TODO: step size choice with different methods
     # TODO: threshold does not seem so logical, we should consider smarter way
-    # TODO: plot accuracy graph
 
-    x = GradientDescent(total_samples=100,unlabelled_ratio=0.8,
-                        learning_rate=1e-5,threshold=0.0001,max_iterations=50)
-    x.create_data()
-    x.create_similarity_matrices()
-    x.optimize()
-    x.plot_loss()
+    # Save the current time
+    print("RBCGD Start")
+    start_time = time.time()
+    rbcgd = Randomized_BCGD(total_samples=10000,unlabelled_ratio=0.9,
+                         learning_rate=1e-5,threshold=0.0001,max_iterations=500)
+    rbcgd.create_data()
+    rbcgd.create_data()
+    rbcgd.create_similarity_matrices()
+    rbcgd.optimize()
+    rbcgd.plot_loss(save_plot=True)
+    rbcgd.plot_accuracy(save_plot=True)
+    rbcgd.save_output()
+    elapsed_time = time.time() - start_time
+
+    print(f"Time Spend:{elapsed_time}")
+
+    print(f"*"*100)
+
+    print("Gradient Descent Start")
+    start_time = time.time()
+    gd = GradientDescent(total_samples=10000,unlabelled_ratio=0.9,
+                         learning_rate=1e-5,threshold=0.0001,max_iterations=500)
+    gd.create_data()
+    gd.create_similarity_matrices()
+    gd.optimize()
+    gd.plot_loss(save_plot=True)
+    gd.plot_accuracy(save_plot=True)
+    gd.save_output()
+
+    elapsed_time = time.time() - start_time
+    print(f"Time Spend:{elapsed_time}")
+
+
+
+
+    #print(f"*"*100)
+    #print(gd.y)
+    #print(bcgd.y)
 
 
 
