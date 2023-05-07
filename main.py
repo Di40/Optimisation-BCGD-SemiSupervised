@@ -275,8 +275,6 @@ if __name__ == '__main__':
             The CPU time used at each iteration.
         accuracy : list
             The accuracy of the model on the labelled data at each iteration.
-        iterations_made : int
-            The number of iterations completed so far.
         """
         def __init__(self,total_samples=1000,unlabelled_ratio=0.9, learning_rate=1e-5, threshold=1e-5,max_iterations=100):
 
@@ -307,16 +305,16 @@ if __name__ == '__main__':
 
         def create_data(self):
 
+            # set the seed for reproducibility - in order to affect data point generation as well
+            np.random.seed(10)
+
             # generate random data points with 2 features and 2 labels
             self.x, self.y = make_blobs(n_samples=self.total_samples,n_features=2, centers=2, cluster_std=1,random_state = 10)
-
+            self.y = 2 * self.y - 1
 
             # plot the data points in a 2D scatter plot
             plt.scatter(self.x[:, 0], self.x[:, 1])
             #plt.show()
-
-            # set the seed for reproducibility
-            np.random.seed(10)
 
             # make %90 of data points unlabeled
             num_unlabeled_samples = int(self.unlabelled_ratio * self.total_samples)
@@ -327,6 +325,8 @@ if __name__ == '__main__':
 
             # hold initially labeled then unlabeled points
             self.true_labels_of_unlabeled = np.copy(self.y[self.unlabeled_indices])
+
+            self.plot_points(True)
 
             # assign initialization labels to unlabeled indices
             self.y = self.y.astype(float)
@@ -344,18 +344,21 @@ if __name__ == '__main__':
             Y_labeled = np.copy(self.y[self.labeled_indices]).astype("float32").reshape((-1, 1))  # shape (len(labeled),1)
 
             # Calculate first double sum
-            y_diff = np.power((Y_unlabeled - Y_labeled.T),2)  # shape (len(unlabeled),len(labeled))
+            y_diff = (Y_unlabeled - Y_labeled.T)**2  # shape (len(unlabeled),len(labeled))
             loss_lu = np.sum(y_diff * self.weight_lu.T)   # shape (len(unlabeled),len(labeled))
 
             # Calculate second double sum
-            y_diff = np.power(Y_unlabeled - Y_unlabeled.T,2)  # shape (len(unlabeled),len(unlabeled))
+            y_diff = (Y_unlabeled - Y_unlabeled.T)**2  # shape (len(unlabeled),len(unlabeled))
             loss_uu = np.sum(y_diff * self.weight_uu.T)   # shape (len(unlabeled),len(unlabeled))
 
             self.loss.append(loss_lu + loss_uu/2) #scalar
 
 
         def calculate_accuracy(self):
-            num_correct = np.sum(np.round(self.y[self.unlabeled_indices]) == self.true_labels_of_unlabeled)
+            rounded_y = np.where(self.y >= 0, 1, -1)
+            num_correct = np.sum(np.round(rounded_y[self.unlabeled_indices]) == self.true_labels_of_unlabeled)
+            # We want the values to be [-1, 1]. However, np.round(0.1) = 0.0, and we want that to be 1.0
+            # num_correct = np.sum(np.round(self.y[self.unlabeled_indices]) == self.true_labels_of_unlabeled)
             self.accuracy.append(num_correct / len(self.true_labels_of_unlabeled))
 
 
@@ -443,11 +446,36 @@ if __name__ == '__main__':
             # save the parameters and accuracy to a text file with the same filename as the image
             with open(filename.replace('.png', '.txt'), 'w') as f:
                 f.write('Learning Rate: {}\n'.format(self.learning_rate))
-                f.write('Iterations: {}\n'.format(self.iterations_made))
+                f.write('Iterations: {}\n'.format(len(self.loss)))
                 f.write('Loss: {}\n'.format(self.loss[-1]))
                 f.write('Accuracy: {:.2f}%\n'.format(self.accuracy[-1] * 100))
                 f.write('Number of Samples:{}\n'.format(self.total_samples))
                 f.write('Number of Unlabelled-Labelled: {}-{}\n'.format(number_unlabelled, number_labelled))
+
+        def plot_points(self, ul=False): #TODO: rename flag and variables inside
+            fig, ax = plt.subplots()
+            if ul:  # show unlabelled points and labelled points together
+                ax.scatter(self.x[:, 0], self.x[:, 1], color='black', marker=".", alpha=0.2)
+                labeled_y = np.array(self.y)[self.labeled_indices]
+                red  = labeled_y == 1
+                blue = labeled_y == -1
+                ax.scatter(self.x[self.labeled_indices][red, 0], self.x[self.labeled_indices][red, 1], c="red",
+                           marker=".")
+                ax.scatter(self.x[self.labeled_indices][blue, 0], self.x[self.labeled_indices][blue, 1], c="blue",
+                           marker=".")
+                ax.set_title("Original points")
+            else:  # show unlabelled points after optimization
+                red = self.y >= 0
+                blue = self.y < 0
+                ax.scatter(self.x[red, 0], self.x[red, 1], c="red", marker=".")
+                ax.scatter(self.x[blue, 0], self.x[blue, 1], c="blue", marker=".")
+                ax.set_title("Predictions")
+                # We can use this to plot the strength of the classification of each point:
+                # ax.scatter(self.x[:, 0], self.x[:, 1], c=self.y, cmap='bwr', marker=".", alpha=0.2)
+
+            plt.grid(alpha=0.3)
+            plt.show()
+
 
     class GradientDescent(Descent):
         def __init__(self,total_samples=1000,unlabelled_ratio=0.9, learning_rate=1e-5, threshold=1e-5,max_iterations=100):
@@ -479,19 +507,12 @@ if __name__ == '__main__':
 
         def optimize(self):
 
-
-            stop_condition = False
             ITERATION = 0
 
             while ITERATION < self.max_iterations:
 
                 t_before = process_time()
                 ITERATION += 1
-                stop_condition = False
-
-                # Check the stop condition
-                if stop_condition:
-                    break
 
                 # Compute objective function for estimated y
                 self.calculate_loss()
@@ -509,12 +530,11 @@ if __name__ == '__main__':
                       self.loss[-1],
                       self.learning_rate))
 
-                # Stopping condition
-                # if abs(self.gradient[-1]) < self.threshold:
-                #     stop_condition = True
-
                 t_after = process_time()
                 self.cpu_time.append(t_after - t_before)
+
+                if abs(np.linalg.norm(np.array(self.gradient))) < self.threshold:
+                    break
 
 
     class Randomized_BCGD(Descent):
@@ -548,11 +568,6 @@ if __name__ == '__main__':
 
                 t_before = process_time()
                 ITERATION += 1
-                stop_condition = False
-
-                # Check the stop condition
-                if stop_condition:
-                    break
 
                 # Compute objective function for estimated y
                 self.calculate_loss()
@@ -573,23 +588,16 @@ if __name__ == '__main__':
                       self.loss[-1],
                       self.learning_rate))
 
-                # Stopping condition
-                # if abs(self.gradient[-1]) < self.threshold:
-                #     stop_condition = True
-
-
                 t_after = process_time()
                 self.cpu_time.append(t_after - t_before)
 
-    # TODO: check the logics of RBCGD for calculating full gradient or not
-    # TODO: arrange threshold parts to stop iteration early
+                if abs(np.linalg.norm(np.array(self.gradient))) < self.threshold: # TODO: Check whether this makes sense
+                    break
+
     # TODO: class Gauss Sauthwell BCGD
     # TODO: step size choice with different methods
-    # TODO: correct the plot function showing all points with the same color wrongly
-    # TODO: plot function to show unlabelled points and labelled points together
-    # TODO: plot function to show unlabelled points after optimization
 
-    # Save the current time
+    #Save the current time
     print("RBCGD Start")
     start_time = time.time()
     rbcgd = Randomized_BCGD(total_samples=5000,unlabelled_ratio=0.9,
@@ -597,6 +605,7 @@ if __name__ == '__main__':
     rbcgd.create_data()
     rbcgd.create_similarity_matrices()
     rbcgd.optimize()
+    rbcgd.plot_points()
     rbcgd.plot_loss(save_plot=True)
     rbcgd.plot_accuracy(save_plot=True)
     rbcgd.plot_cpu_time(save_plot=True)
@@ -615,6 +624,7 @@ if __name__ == '__main__':
     # gd.create_data()
     # gd.create_similarity_matrices()
     # gd.optimize()
+    # gd.plot_points()
     # gd.plot_loss(save_plot=False)
     # gd.plot_accuracy(save_plot=False)
     # gd.plot_cpu_time(save_plot=False)
