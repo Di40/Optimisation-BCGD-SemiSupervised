@@ -271,13 +271,13 @@ if __name__ == '__main__':
 
             # Calculate first double sum
             y_diff = np.power((Y_unlabeled - Y_labeled.T),2)  # shape (len(unlabeled),len(labeled))
-            loss_lu = np.sum(y_diff * self.weight_lu.T)
+            loss_lu = np.sum(y_diff * self.weight_lu.T)   # shape (len(unlabeled),len(labeled))
 
             # Calculate second double sum
-            y_diff = np.power(Y_unlabeled - Y_unlabeled.T,2)
-            loss_uu = np.sum(y_diff * self.weight_uu.T)
+            y_diff = np.power(Y_unlabeled - Y_unlabeled.T,2)  # shape (len(unlabeled),len(unlabeled))
+            loss_uu = np.sum(y_diff * self.weight_uu.T)   # shape (len(unlabeled),len(unlabeled))
 
-            self.loss.append(loss_lu + loss_uu/2)
+            self.loss.append(loss_lu + loss_uu/2) #scalar
 
 
         def calculate_accuracy(self):
@@ -323,7 +323,7 @@ if __name__ == '__main__':
                     f.write('Loss: {}\n'.format(self.loss[-1]))
                     f.write('Accuracy: {:.2f}%\n'.format(self.accuracy[-1] * 100))
                     f.write('Number of Samples:{}\n'.format(self.total_samples))
-                    f.write('Number of Unlabelled-Labelled: {d}-{d}\n'.format(number_unlabelled,number_labelled))
+                    f.write('Number of Unlabelled-Labelled: {}-{}\n'.format(number_unlabelled,number_labelled))
 
 
     class GradientDescent(Descent):
@@ -340,15 +340,16 @@ if __name__ == '__main__':
             self.gradient=[]
 
         def calculate_gradient(self,i):
-            grad_lu = np.sum((self.y[self.unlabeled_indices[i]] - self.y[self.labeled_indices]) * self.weight_lu.T[i])
-            grad_uu = np.sum(
-                (self.y[self.unlabeled_indices[i]] - self.y[self.unlabeled_indices]) * self.weight_uu.T[i])
+            # shape grad_lu --> scalar
+            grad_lu = np.sum((self.y[self.unlabeled_indices[i]] - self.y[self.labeled_indices]) # shape (scalar-vector number of labelled) = vector number of labelled
+                             * self.weight_lu.T[i])  # shape  vector num of labelled * vector num of labelled (for index i)= vector num of labelled
+
+            grad_uu = np.sum((self.y[self.unlabeled_indices[i]] - self.y[self.unlabeled_indices])
+                             * self.weight_uu.T[i]) # shape vector num of unlabelled
             self.gradient.append(grad_lu * 2 + grad_uu)
 
         def optimize(self):
 
-            self.create_data()
-            self.create_similarity_matrices()
             stop_condition = False
             ITERATION = 0
 
@@ -392,10 +393,12 @@ if __name__ == '__main__':
     # TODO: write docstrings for classes and functions
     # TODO: step size choice with different methods
     # TODO: threshold does not seem so logical, we should consider smarter way
+    # TODO: plot accuracy graph
 
-
-    x = GradientDescent(total_samples=5000,unlabelled_ratio=0.8,
+    x = GradientDescent(total_samples=100,unlabelled_ratio=0.8,
                         learning_rate=1e-5,threshold=0.0001,max_iterations=50)
+    x.create_data()
+    x.create_similarity_matrices()
     x.optimize()
     x.plot_loss()
 
