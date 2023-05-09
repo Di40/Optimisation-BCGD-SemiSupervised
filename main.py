@@ -313,7 +313,7 @@ if __name__ == '__main__':
             self.y = 2 * self.y - 1
 
             # plot the data points in a 2D scatter plot
-            plt.scatter(self.x[:, 0], self.x[:, 1])
+            #plt.scatter(self.x[:, 0], self.x[:, 1])
             #plt.show()
 
             # make %90 of data points unlabeled
@@ -543,7 +543,7 @@ if __name__ == '__main__':
             self.learning_rate = learning_rate
             self.threshold = threshold
             self.max_iterations= max_iterations
-            self.name="BCGD"
+            self.name="R_BCGD"
 
             self.total_samples = total_samples
             self.unlabelled_ratio = unlabelled_ratio
@@ -594,14 +594,87 @@ if __name__ == '__main__':
                 if abs(np.linalg.norm(np.array(self.gradient))) < self.threshold: # TODO: Check whether this makes sense
                     break
 
+    class GS_BCGD(Descent):
+        def __init__(self,total_samples=1000,unlabelled_ratio=0.9, learning_rate=1e-5, threshold=1e-5,max_iterations=100):
+            super().__init__()
+            self.learning_rate = learning_rate
+            self.threshold = threshold
+            self.max_iterations= max_iterations
+            self.name="GS_BCGD"
+
+            self.total_samples = total_samples
+            self.unlabelled_ratio = unlabelled_ratio
+
+            self.gradient=[]
+
+
+        def get_largest_gradient_index(self):
+
+            weighted_diff = (self.y[self.unlabeled_indices].reshape((-1,1)) - self.y[self.labeled_indices])* self.weight_lu.T # shape (len unlabelled, len labelled)
+            grad_lu = np.sum(weighted_diff,axis=1) # shape (len unlabelled, 1)  , sum all columns
+
+            weighted_diff = (self.y[self.unlabeled_indices].reshape((-1,1)) - self.y[self.unlabeled_indices])* self.weight_uu.T # shape (len unlabelled, len unlabelled)
+            grad_uu = np.sum(weighted_diff,axis=1) # shape (len unlabelled, 1)  , sum all columns
+
+
+            full_grad = grad_lu * 2 + grad_uu # shape(len unlabelled,1)
+            max_grad_index = np.argmax(np.abs(full_grad))
+            return  full_grad[max_grad_index], max_grad_index
+
+
+
+        def calculate_gradient(self, block):
+            # shape grad_lu --> scalar
+            grad_lu = np.sum((self.y[self.unlabeled_indices[block]] - self.y[self.labeled_indices])  # shape (scalar-vector number of labelled) = vector number of labelled
+                             * self.weight_lu.T[block])  # shape  vector num of labelled * vector num of labelled (for block)= vector num of labelled
+
+            grad_uu = np.sum((self.y[self.unlabeled_indices[block]] - self.y[self.unlabeled_indices])
+                             * self.weight_uu.T[block]) # shape vector num of unlabelled
+            self.gradient.append(grad_lu * 2 + grad_uu)
+
+        def optimize(self):
+
+            stop_condition = False
+            ITERATION = 0
+
+            while ITERATION < self.max_iterations:
+
+                t_before = process_time()
+                ITERATION += 1
+
+                # Compute objective function for estimated y
+                self.calculate_loss()
+                self.calculate_accuracy()
+
+                # Choosing max gradient block
+                grad , max_gradient_index = self.get_largest_gradient_index()
+                self.gradient.append(grad)
+
+                # Update the estimated y
+                self.y[self.unlabeled_indices[max_gradient_index]] = self.y[self.unlabeled_indices[max_gradient_index]] - self.learning_rate * self.gradient[-1]
+
+                print("iteration: {} --- accuracy: {:.3f} ---- loss: {:.3f} --- next_stepsize: {}"
+                      .format(ITERATION,
+                      self.accuracy[-1],
+                      self.loss[-1],
+                      self.learning_rate))
+
+                t_after = process_time()
+                self.cpu_time.append(t_after - t_before)
+
+                if abs(np.linalg.norm(np.array(self.gradient))) < self.threshold: # TODO: Check whether this makes sense
+                    break
+
+
+
     # TODO: class Gauss Sauthwell BCGD
-    # TODO: step size choice with different methods
+    # TODO: step size choice with Hessian and Armijo
 
     #Save the current time
     print("RBCGD Start")
     start_time = time.time()
-    rbcgd = Randomized_BCGD(total_samples=5000,unlabelled_ratio=0.9,
-                         learning_rate=1e-4,threshold=0.0001,max_iterations=100)
+    rbcgd = GS_BCGD(total_samples=1000,unlabelled_ratio=0.9,
+                         learning_rate=1e-3,threshold=0.0001,max_iterations=5000)
     rbcgd.create_data()
     rbcgd.create_similarity_matrices()
     rbcgd.optimize()
