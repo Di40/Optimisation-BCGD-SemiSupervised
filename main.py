@@ -7,6 +7,7 @@ from sklearn.datasets import make_blobs
 from sklearn.metrics import euclidean_distances
 import datetime
 import time
+import copy
 
 
 class Descent:
@@ -143,10 +144,11 @@ class Descent:
         self.weight_lu = 1 / (euclidean_distances(self.x[self.labeled_indices], self.x[self.unlabeled_indices]) + eps)
         self.weight_uu = 1 / (euclidean_distances(self.x[self.unlabeled_indices], self.x[self.unlabeled_indices]) + eps)
 
-    def calculate_loss(self):
-        Y_unlabeled = np.copy(self.y[self.unlabeled_indices]).astype("float32").reshape(
-            (-1, 1))  # shape (len(unlabeled),1)
-        Y_labeled = np.copy(self.y[self.labeled_indices]).astype("float32").reshape((-1, 1))  # shape (len(labeled),1)
+
+    def calculate_loss(self,y_labelled, y_unlabelled):
+
+        Y_labeled = np.copy(y_labelled).astype("float32").reshape((-1, 1))  # shape (len(labeled),1)
+        Y_unlabeled = np.copy(y_unlabelled).astype("float32").reshape((-1, 1))  # shape (len(unlabeled),1)
 
         # Calculate first double sum
         y_diff = (Y_unlabeled - Y_labeled.T) ** 2  # shape (len(unlabeled),len(labeled))
@@ -156,7 +158,8 @@ class Descent:
         y_diff = (Y_unlabeled - Y_unlabeled.T) ** 2  # shape (len(unlabeled),len(unlabeled))
         loss_uu = np.sum(y_diff * self.weight_uu.T)  # shape (len(unlabeled),len(unlabeled))
 
-        self.loss.append(loss_lu + loss_uu / 2)  # scalar
+        return (loss_lu + loss_uu / 2)  # scalar
+
 
     def calculate_accuracy(self):
         rounded_y = np.where(self.y >= 0, 1, -1)
@@ -238,7 +241,6 @@ class Descent:
         plt.show()
 
     def save_output(self):
-
         now = datetime.datetime.now()
         time_str = now.strftime("%m.%d.2023-%H.%M")
         filename = '{}_date {}, acc {:.2f}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
@@ -279,9 +281,9 @@ class Descent:
         plt.show()
 
 
+
 class GradientDescent(Descent):
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5, threshold=1e-5,
-                 max_iterations=100):
+    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5, threshold=1e-5, max_iterations=100):
         super().__init__()
         self.learning_rate = learning_rate
         self.threshold = threshold
@@ -293,12 +295,45 @@ class GradientDescent(Descent):
 
         self.gradient = []
 
+
+    def armijo_rule(self,alpha = 0.05, delta = 0.95, gamma = 0.49, max_iteration = 100):
+        """
+        Args:
+        - alpha: float, the initial learning rate
+        - delta: float, constant in (0,1) representing the proportion by which we decrease the learning rate
+        - gamma: float, constant in (0,1/2) representing the decrease rate of the learning rate
+        - grad: numpy array of shape (n_features,), the gradients of the loss function with respect to the weights
+        - max_iteration: integer, maximum number of iterations to run the Armijo rule for
+        """
+
+
+        # Compute the initial loss
+        current_loss = self.loss[-1]
+
+        # Compute the squared norm of the gradient
+        grad = self.gradient[-1]  # (len unlabelled,1)
+        dk = -grad
+
+
+        # Iterate up to max_iterion
+        while True:
+            # Check the Armijo condition, i.e., if the expected loss is smaller than the current loss plus some threshold
+            expected_loss = self.calculate_loss(self.y[self.labeled_indices],self.y[self.unlabeled_indices] + alpha * dk)
+            #print(f"expected loss:{expected_loss}, current_loss+change:{current_loss + gamma * alpha * np.dot(grad.T, dk)} ")
+            if  expected_loss <= current_loss + gamma * alpha * np.dot(grad.T, dk) :
+                # If the condition is met, return the chosen learning rate
+                return alpha
+            else:
+                # If the condition is not met, decrease the learning rate by a constant factor
+                alpha *= delta
+
+
+
     def calculate_gradient(self):
         # shape : (self.y[self.unlabeled_indices] -> (len,)
         # shape: (self.y[self.unlabeled_indices].reshape((-1,1)) -> (len,1)
         # This helps us to use broadcasting
         # shape : (self.y[self.unlabeled_indices].reshape((-1,1)) - self.y[self.labeled_indices] -> (len unlabelled, len labelled)
-
         weighted_diff = (self.y[self.unlabeled_indices].reshape((-1, 1)) - self.y[
             self.labeled_indices]) * self.weight_lu.T  # shape (len unlabelled, len labelled)
         grad_lu = np.sum(weighted_diff, axis=1)  # shape (len unlabelled, 1)  , sum all columns
@@ -319,12 +354,15 @@ class GradientDescent(Descent):
             ITERATION += 1
 
             # Compute objective function for estimated y
-            self.calculate_loss()
+            self.loss.append(self.calculate_loss(self.y[self.labeled_indices],self.y[self.unlabeled_indices]))
             self.calculate_accuracy()
 
             # Calculate gradient with respect to i
             self.calculate_gradient()
 
+
+            #### ARMIJO TRIAL
+            self.learning_rate = self.armijo_rule()
             # Update the estimated y
             self.y[self.unlabeled_indices] = self.y[self.unlabeled_indices] - self.learning_rate * self.gradient[-1]
 
@@ -339,6 +377,7 @@ class GradientDescent(Descent):
 
             if abs(np.linalg.norm(np.array(self.gradient))) < self.threshold:
                 break
+
 
 
 class Randomized_BCGD(Descent):
@@ -377,7 +416,7 @@ class Randomized_BCGD(Descent):
             ITERATION += 1
 
             # Compute objective function for estimated y
-            self.calculate_loss()
+            self.loss.append(self.calculate_loss(self.y[self.labeled_indices],self.y[self.unlabeled_indices]))
             self.calculate_accuracy()
 
             # Choosing random block
@@ -387,9 +426,7 @@ class Randomized_BCGD(Descent):
             self.calculate_gradient(rand_block)
 
             # Update the estimated y
-            self.y[self.unlabeled_indices[rand_block]] = self.y[
-                                                             self.unlabeled_indices[rand_block]] - self.learning_rate * \
-                                                         self.gradient[-1]
+            self.y[self.unlabeled_indices[rand_block]] = self.y[self.unlabeled_indices[rand_block]] - self.learning_rate *self.gradient[-1]
 
             print("iteration: {} --- accuracy: {:.3f} ---- loss: {:.3f} --- next_stepsize: {}"
                   .format(ITERATION,
@@ -454,7 +491,7 @@ class GS_BCGD(Descent):
             ITERATION += 1
 
             # Compute objective function for estimated y
-            self.calculate_loss()
+            self.loss.append(self.calculate_loss(self.y[self.labeled_indices],self.y[self.unlabeled_indices]))
             self.calculate_accuracy()
 
             # Choosing max gradient block
@@ -480,33 +517,33 @@ class GS_BCGD(Descent):
 
 if __name__ == '__main__':
 
-    # TODO: step size choice with Hessian
-    # TODO: step size choice with Armijo
+    # TODO: step size choice with Hessian - Dejan
+    # TODO: Armijo for gs and rbcgd- Suleyman
 
     #Save the current time
-    # print("RBCGD Start")
-    # start_time = time.time()
-    # rbcgd = GS_BCGD(total_samples=1000,unlabelled_ratio=0.9,
-    #                      learning_rate=1e-3,threshold=0.0001,max_iterations=5000)
-    # rbcgd.create_data()
-    # rbcgd.create_similarity_matrices()
-    # rbcgd.optimize()
-    # rbcgd.plot_points()
-    # rbcgd.plot_loss(save_plot=True)
-    # rbcgd.plot_accuracy(save_plot=True)
-    # rbcgd.plot_cpu_time(save_plot=True)
-    # rbcgd.save_output()
-    #
-    # elapsed_time = time.time() - start_time
-    #
-    # print(f"Time Spend:{elapsed_time}")
-    #
-    # print(f"*"*100)
+    print("RBCGD Start")
+    start_time = time.time()
+    descent = GradientDescent(total_samples=1000, unlabelled_ratio=0.9,
+                              learning_rate=0.0001, threshold=0.0001, max_iterations=100)
+    descent.create_data()
+    descent.create_similarity_matrices()
+    descent.optimize()
+    descent.plot_points()
+    descent.plot_loss(save_plot=True)
+    descent.plot_accuracy(save_plot=True)
+    descent.plot_cpu_time(save_plot=True)
+    descent.save_output()
+
+    elapsed_time = time.time() - start_time
+
+    print(f"Time Spend:{elapsed_time}")
+
+    print(f"*"*100)
 
     # print("Gradient Descent Start")
     # start_time = time.time()
-    # gd = GradientDescent(total_samples=2000,unlabelled_ratio=0.9,
-    #                      learning_rate=1e-5,threshold=0.0001,max_iterations=500)
+    # gd =Randomized_BCGD(total_samples=3000,unlabelled_ratio=0.9,
+    #                      learning_rate=0.0001,threshold=0.0001,max_iterations=500)
     # gd.create_data()
     # gd.create_similarity_matrices()
     # gd.optimize()
@@ -519,59 +556,12 @@ if __name__ == '__main__':
     # elapsed_time = time.time() - start_time
     # print(f"Time Spend:{elapsed_time}")
 
-    gd = GradientDescent(total_samples=2000, unlabelled_ratio=0.9,
-                         learning_rate=1e-5, threshold=0.0001, max_iterations=500)
-    gd.create_data()
-    gd.create_similarity_matrices()
-    # Gradient at point x
-    gd.calculate_gradient()
-    grad = gd.gradient[-1]  # (1800,1)
-    # Search direction
-    p = -np.array(grad)
-    # Initialize counter for iterations
-    iteration = 1
-    # Set c for Armijo condition
-    c = 0.9
-    # Set roh for backtracking algorithm
-    roh = 0.95
-    while iteration < 20 \
-            and np.linalg.norm(grad) > 10 ** -4:
-        t_before = process_time()
-        # Set alpha to 1 every time we enter the while loop
-        # and calculate the new alpha for each iteration
-        alpha = 0.05
-        # Armijo condition in while loop
-        while True:
-            loss = gd.dedi_loss()
-            loss += c * alpha * grad * p
 
-            gd_modified = copy.deepcopy(gd)
-            gd_modified.y = np.array(gd.y)
-            gd_modified.y[gd_modified.unlabeled_indices] += alpha * p
-            modified_loss = gd_modified.dedi_loss()
 
-            sum_loss = np.sum(loss)
-            sum_modified_loss = np.sum(modified_loss)
-            if sum_modified_loss > sum_loss:
-                alpha = roh * alpha
-            else:
-                break
 
-        gd.calculate_gradient()
-        grad = gd.gradient[-1]
-        p = -np.array(grad)
-        print(f"{iteration}, stepsize: {alpha}")
-        gd.y[gd.unlabeled_indices] = np.array(gd.y[gd.unlabeled_indices]) + alpha * p
 
-        gd.calculate_loss()
-        gd.calculate_accuracy()
-        t_after = process_time()
-        gd.cpu_time.append(t_after - t_before)
 
-        # Update iteration
-        iteration += 1
 
-    gd.plot_loss(save_plot=True)
 
 
 
