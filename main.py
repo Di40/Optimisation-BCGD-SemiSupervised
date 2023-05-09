@@ -8,6 +8,7 @@ from sklearn.metrics import euclidean_distances
 import datetime
 import time
 import copy
+from scipy import linalg as la
 
 
 class Descent:
@@ -405,10 +406,32 @@ class Randomized_BCGD(Descent):
                          * self.weight_uu.T[block])  # shape vector num of unlabelled
         self.gradient.append(grad_lu * 2 + grad_uu * 2)
 
+    def hessian_matrix(self):
+        h_mat = np.copy(-self.weight_uu)
+        for i in range(len(self.unlabeled_indices)):
+            h_mat[i][i] += 2 * (np.sum(self.weight_lu[:, i]) + np.sum(self.weight_uu[:, i])) - self.weight_uu[i,i]
+        return h_mat
+
+    def get_L(self):
+        e_vals, e_vecs = la.eig(self.hessian_matrix())
+        return max(e_vals)
+
     def optimize(self):
 
         stop_condition = False
         ITERATION = 0
+
+        # TODO: Add check for learning rate method
+        # L = self.get_L()
+        # self.learning_rate = 1 / L
+
+        # L = L/len(self.unlabeled_indices) # L/b
+        # from theory:  the modified version of the randomized BCGD method
+        #               achieves the same complexity result as the full
+        #               gradient descent algorithm
+        # self.learning_rate = 1 / L
+
+
 
         while ITERATION < self.max_iterations:
 
@@ -420,13 +443,21 @@ class Randomized_BCGD(Descent):
             self.calculate_accuracy()
 
             # Choosing random block
-            rand_block = np.random.randint(len(self.unlabeled_indices))
+            # rand_block = np.random.randint(len(self.unlabeled_indices))
+
+            # TODO: Add flag to whether to use Nesterov probability or uniform sampling
+            Li = np.diag(self.hessian_matrix())
+            probs_Nesterov = Li / np.sum(Li)
+            rand_block = np.random.choice(range(len(self.unlabeled_indices)), p=probs_Nesterov) # 0-2700
+            # TODO: Add check for learning rate method
+            self.learning_rate = 1 / Li[rand_block]
 
             # Calculate gradient with respect to i
             self.calculate_gradient(rand_block)
 
             # Update the estimated y
-            self.y[self.unlabeled_indices[rand_block]] = self.y[self.unlabeled_indices[rand_block]] - self.learning_rate *self.gradient[-1]
+            self.y[self.unlabeled_indices[rand_block]] = self.y[self.unlabeled_indices[rand_block]] - \
+                                                         self.learning_rate * self.gradient[-1]
 
             print("iteration: {} --- accuracy: {:.3f} ---- loss: {:.3f} --- next_stepsize: {}"
                   .format(ITERATION,
@@ -519,51 +550,31 @@ if __name__ == '__main__':
 
     # TODO: step size choice with Hessian - Dejan
     # TODO: Armijo for gs and rbcgd- Suleyman
+    # TODO: Add stopping condition: change of loss function between iterations < 5% (or 0.5% maybe?)
+    # TODO: Add lr_strategy enum
 
     #Save the current time
-    print("RBCGD Start")
     start_time = time.time()
-    descent = GradientDescent(total_samples=1000, unlabelled_ratio=0.9,
+    gd = GradientDescent(total_samples=1000, unlabelled_ratio=0.9,
                               learning_rate=0.0001, threshold=0.0001, max_iterations=100)
-    descent.create_data()
-    descent.create_similarity_matrices()
-    descent.optimize()
-    descent.plot_points()
-    descent.plot_loss(save_plot=True)
-    descent.plot_accuracy(save_plot=True)
-    descent.plot_cpu_time(save_plot=True)
-    descent.save_output()
 
-    elapsed_time = time.time() - start_time
+    rbcgd = Randomized_BCGD(total_samples=1000,unlabelled_ratio=0.9,
+                            learning_rate=0.0001,threshold=0.0001,max_iterations=5000)
 
-    print(f"Time Spend:{elapsed_time}")
-
-    print(f"*"*100)
-
-    # print("Gradient Descent Start")
-    # start_time = time.time()
-    # gd =Randomized_BCGD(total_samples=3000,unlabelled_ratio=0.9,
-    #                      learning_rate=0.0001,threshold=0.0001,max_iterations=500)
-    # gd.create_data()
-    # gd.create_similarity_matrices()
-    # gd.optimize()
-    # gd.plot_points()
-    # gd.plot_loss(save_plot=False)
-    # gd.plot_accuracy(save_plot=False)
-    # gd.plot_cpu_time(save_plot=False)
-    # gd.save_output()
-    #
-    # elapsed_time = time.time() - start_time
-    # print(f"Time Spend:{elapsed_time}")
-
-
-
-
-
-
-
-
-
-
+    optimization_algorithms = [rbcgd] # add more/use only one
+    for optim_alg in optimization_algorithms:
+        print(f"{optim_alg.name} Start")
+        start_time = time.time()
+        optim_alg.create_data()
+        optim_alg.create_similarity_matrices()
+        optim_alg.optimize()
+        optim_alg.plot_points()
+        optim_alg.plot_loss(save_plot=True)
+        optim_alg.plot_accuracy(save_plot=True)
+        optim_alg.plot_cpu_time(save_plot=True)
+        optim_alg.save_output()
+        elapsed_time = time.time() - start_time
+        print(f"Time Spent:{elapsed_time}")
+        print(f"*"*100)
 
     print("end")
