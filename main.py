@@ -279,8 +279,8 @@ class Descent:
             return True
 
 class Gradient_Descent(Descent):
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5, threshold=1e-5,
-                 max_iterations=100,learning_rate_strategy='constant'):
+    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, threshold=1e-5,
+                 max_iterations=100, learning_rate_strategy='constant', learning_rate=1e-5):
         super().__init__()
         self.learning_rate = learning_rate
         self.threshold = threshold
@@ -309,13 +309,14 @@ class Gradient_Descent(Descent):
         # Compute the squared norm of the gradient
         grad = self.gradient[-1]  # (len unlabelled,1)
         dk = -grad
+        dot_product = np.dot(grad.T, dk)
 
         # Iterate up to max_iterion
         while True:
             # Check the Armijo condition, i.e., if the expected loss is smaller than the current loss plus some threshold
             expected_loss = self.calculate_loss(self.y[self.labeled_indices],self.y[self.unlabeled_indices] + alpha * dk)
             #print(f"expected loss:{expected_loss}, current_loss+change:{current_loss + gamma * alpha * np.dot(grad.T, dk)} ")
-            if  expected_loss <= current_loss + gamma * alpha * np.dot(grad.T, dk) :
+            if  expected_loss <= current_loss + gamma * alpha * dot_product :
                 # If the condition is met, return the chosen learning rate
                 return alpha
             else:
@@ -333,16 +334,9 @@ class Gradient_Descent(Descent):
         return h_mat
 
     def _learning_rate(self):
-
-        if self.learning_rate_strategy == 'constant' or self.learning_rate_strategy == 0 :
-            return self.learning_rate
-        elif self.learning_rate_strategy == 'armijo' or self.learning_rate_strategy == 1:
-            lr = self._armijo_rule()
-            return lr
-        elif self.learning_rate_strategy == 'lipschitz' or self.learning_rate_strategy == 2:
-            L = self._Lipschitz_constant()
-            return 1 / L
-
+        if self.learning_rate_strategy == 'armijo' or self.learning_rate_strategy == 1:
+            return self._armijo_rule()
+        return self.learning_rate
 
 
     def calculate_gradient(self):
@@ -363,6 +357,10 @@ class Gradient_Descent(Descent):
     def optimize(self):
 
         ITERATION = 0
+
+        if self.learning_rate_strategy == 'lipschitz' or self.learning_rate_strategy == 2:
+            L = self._Lipschitz_constant()
+            self.learning_rate = 1 / L
 
         while ITERATION < self.max_iterations:
 
@@ -417,7 +415,6 @@ class BCGD(Descent):
         self.gradient = []
         self.curr_rand_block= 0
 
-
     def _hessian_matrix(self):
         h_mat = np.copy(-self.weight_uu)
         for i in range(len(self.unlabeled_indices)):
@@ -432,20 +429,44 @@ class BCGD(Descent):
         eig_vals, _ = np.linalg.eig(self._hessian_matrix())
         return max(eig_vals)
 
-    def _learning_rate(self):
+    def _armijo_rule(self, alpha = 0.05, delta = 0.95, gamma = 0.49):
+        """
+        Args:
+        - alpha: float, the initial learning rate
+        - delta: float, constant in (0,1) representing the proportion by which we decrease the learning rate
+        - gamma: float, constant in (0,1/2) representing the decrease rate of the learning rate
+        - grad: numpy array of shape (n_features,), the gradients of the loss function with respect to the weights
+        """
+        # Compute the initial loss
+        current_loss = self.loss[-1]
 
-        if self.learning_rate_strategy == 'constant' or self.learning_rate_strategy == 0 :
-            return self.learning_rate
-        elif self.learning_rate_strategy == 'block_based' or self.learning_rate_strategy == 1:
+        # Compute the squared norm of the gradient
+        grad = self.gradient[-1]  # (len unlabelled,1)
+        dk = -grad
+        dot_product = np.dot(grad.T, dk)
+
+        # Iterate up to max_iterion
+        while True:
+            # Check the Armijo condition, i.e., if the expected loss is smaller than the current loss plus some threshold
+            expected_loss = self.calculate_loss(self.y[self.labeled_indices],self.y[self.unlabeled_indices] + alpha * dk)
+            #print(f"expected loss:{expected_loss}, current_loss+change:{current_loss + gamma * alpha * np.dot(grad.T, dk)} ")
+            if  expected_loss <= current_loss + gamma * alpha * dot_product :
+                # If the condition is met, return the chosen learning rate
+                return alpha
+            else:
+                # If the condition is not met, decrease the learning rate by a constant factor
+                alpha *= delta
+
+    def _learning_rate(self):
+        if self.learning_rate_strategy == 'block_based' or self.learning_rate_strategy == 1:
             Li = self._Larger_lipschitz_constant()
             return 1 / Li[self.curr_rand_block]
-        elif self.learning_rate_strategy == 'lipschitz' or self.learning_rate_strategy == 2:
-            L = self._Lipschitz_constant()
-            return 1 / L
+        elif self.learning_rate_strategy == 'armijo' or self.learning_rate_strategy == 1:
+            return self._armijo_rule()
         #           elif self.learning_rate_strategy == 'lipschitz2' or self.learning_rate_strategy ==3:
         #                L = self._Lipschitz_constant() / len(self.unlabeled_indices) # L/b
         #                self.learning_rate = 1 / L
-
+        return self.learning_rate
 
 class Randomized_BCGD(BCGD):
     def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5,
@@ -480,6 +501,9 @@ class Randomized_BCGD(BCGD):
         stop_condition = False
         ITERATION = 0
 
+        if self.learning_rate_strategy == 'lipschitz' or self.learning_rate_strategy == 2:
+            L = self._Lipschitz_constant()
+            self.learning_rate = 1 / L
 
         while ITERATION < self.max_iterations:
 
