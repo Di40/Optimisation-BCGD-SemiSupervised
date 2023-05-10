@@ -2,12 +2,7 @@ import numpy as np
 from numpy.random import randn
 from matplotlib import pyplot as plt
 from time import process_time
-from tqdm.auto import tqdm
-from sklearn.datasets import make_blobs
-from sklearn.metrics import euclidean_distances
 import datetime
-import time
-import copy
 
 
 class Descent:
@@ -78,7 +73,7 @@ class Descent:
         The accuracy of the model on the labelled data at each iteration.
     """
 
-    def __init__(self, learning_rate=1e-5, max_iterations=100):
+    def __init__(self, learning_rate=1e-5, max_iterations=100, verbose=False):
 
         # create data parameters
         self.total_samples = None
@@ -102,6 +97,8 @@ class Descent:
         self.loss = []
         self.cpu_time = []
         self.accuracy = []
+
+        self.verbose = verbose
 
     def load_data(self, total_samples, unlabelled_ratio, x, y, unlabeled_indices, labeled_indices, weight_lu,
                   weight_uu):
@@ -139,7 +136,6 @@ class Descent:
 
         return (loss_lu + loss_uu / 2)  # scalar
 
-
     def calculate_accuracy(self):
         rounded_y = np.where(self.y >= 0, 1, -1)
         num_correct = np.sum(np.round(rounded_y[self.unlabeled_indices]) == self.true_labels_of_unlabeled)
@@ -152,6 +148,14 @@ class Descent:
 
     def optimize(self):
         raise NotImplementedError("Subclass must implement abstract method")
+
+    def early_stopping(self):
+        delta_new = self.loss[-1] - self.loss[-2]
+        delta_old = self.loss[-2] - self.loss[-3]
+        if delta_old == 0:
+            delta_old += 1e-8
+        if delta_new / delta_old < 0.01:
+            return True
 
     def plot_loss(self, save_plot):
 
@@ -256,12 +260,6 @@ class Descent:
         plt.grid(alpha=0.3)
         plt.show()
 
-    def early_stopping(self):
-        delta_new = self.loss[-1] - self.loss[-2]
-        delta_old = self.loss[-2] - self.loss[-3]
-        if delta_new/ delta_old < 0.01:
-            return True
-
 class Gradient_Descent(Descent):
     def __init__(self, threshold=1e-5, max_iterations=100, learning_rate_strategy='constant', learning_rate=1e-5):
         super().__init__()
@@ -269,7 +267,6 @@ class Gradient_Descent(Descent):
         self.threshold = threshold
         self.max_iterations = max_iterations
         self.name = "GradientDescent"
-
         self.gradient = []
         self.learning_rate_strategy = learning_rate_strategy
 
@@ -317,7 +314,6 @@ class Gradient_Descent(Descent):
             return self._armijo_rule()
         return self.learning_rate
 
-
     def calculate_gradient(self):
         # shape : (self.y[self.unlabeled_indices] -> (len,)
         # shape: (self.y[self.unlabeled_indices].reshape((-1,1)) -> (len,1)
@@ -359,35 +355,34 @@ class Gradient_Descent(Descent):
             # Update the estimated y
             self.y[self.unlabeled_indices] = self.y[self.unlabeled_indices] - self.learning_rate * self.gradient[-1]
 
-            print("{} iteration: {} --- accuracy: {:.3f} ---- loss: {:.3f} --- next_stepsize: {}"
-                  .format(np.linalg.norm(np.array(self.gradient[-1])),
-                          ITERATION,
-                          self.accuracy[-1],
-                          self.loss[-1],
-                          self.learning_rate))
+            if self.verbose:
+                print("{} iteration: {} --- accuracy: {:.3f} ---- loss: {:.3f} --- next_stepsize: {}"
+                      .format(np.linalg.norm(np.array(self.gradient[-1])),
+                              ITERATION,
+                              self.accuracy[-1],
+                              self.loss[-1],
+                              self.learning_rate))
 
             t_after = process_time()
             self.cpu_time.append(t_after - t_before)
 
             if abs(np.linalg.norm(np.array(self.gradient[-1]))) < self.threshold:
-                print("grad norm threshold: stopped iterations")
+                print("Stopping... Reached gradient norm threshold.")
                 break
 
-            if  ITERATION > 2 and self.early_stopping():
-                print("early_stopping: stopped iterations")
+            if ITERATION > 2 and self.early_stopping():
+                print("Stopping... Reached loss function plateau.")
                 break
-
 
 class BCGD(Descent):
-    def __init__(self, max_iterations=100, flag_nesterov_rand_block = True,
-                 learning_rate_strategy ='constant', learning_rate=1e-5,):
+    def __init__(self, max_iterations=100, use_nesterov_probs = True,
+                 learning_rate_strategy ='constant', learning_rate=1e-5, ):
         super().__init__()
         self.learning_rate = learning_rate
         self.max_iterations = max_iterations
         self.name = "Block_Descent"
-        self.nesterov_rand_block = flag_nesterov_rand_block
+        self.use_nesterov_probs = use_nesterov_probs
         self.learning_rate_strategy = learning_rate_strategy
-
         self.gradient = []
         self.curr_rand_block= 0
 
@@ -446,14 +441,13 @@ class BCGD(Descent):
 
 class Randomized_BCGD(BCGD):
     def __init__(self, total_samples=1000, unlabelled_ratio=0.9, max_iterations=100,
-                 flag_nesterov_rand_block = True, learning_rate_strategy ='constant', learning_rate=1e-5):
+                 use_nesterov_probs = False, learning_rate_strategy ='constant', learning_rate=1e-5):
         super().__init__()
         self.learning_rate = learning_rate
         self.max_iterations = max_iterations
         self.name = "R_BCGD"
-        self.nesterov_rand_block = flag_nesterov_rand_block
+        self.use_nesterov_probs = use_nesterov_probs
         self.learning_rate_strategy = learning_rate_strategy
-
         self.gradient = []
         self.curr_rand_block= 0
 
@@ -467,7 +461,6 @@ class Randomized_BCGD(BCGD):
         grad_uu = np.sum((self.y[self.unlabeled_indices[block]] - self.y[self.unlabeled_indices])
                          * self.weight_uu.T[block])  # shape vector num of unlabelled
         self.gradient.append(grad_lu * 2 + grad_uu * 2)
-
 
     def optimize(self):
 
@@ -488,18 +481,18 @@ class Randomized_BCGD(BCGD):
             self.calculate_accuracy()
 
             # Choosing random block
-            if self.nesterov_rand_block:
+            if self.use_nesterov_probs:
                 Li = self._Larger_lipschitz_constant()
                 probs_Nesterov = Li / np.sum(Li)
                 self.curr_rand_block = np.random.choice(range(len(self.unlabeled_indices)), p=probs_Nesterov)
             else:
                 self.curr_rand_block = np.random.randint(len(self.unlabeled_indices))
 
-            # Choose learning rate
-            self.learning_rate = self._learning_rate()
-
             # Calculate gradient with respect to i
             self.calculate_gradient(self.curr_rand_block)
+
+            # Choose learning rate
+            self.learning_rate = self._learning_rate()
 
             # Update the estimated y
             self.y[self.unlabeled_indices[self.curr_rand_block]] = self.y[self.unlabeled_indices[self.curr_rand_block]] - \
@@ -515,20 +508,18 @@ class Randomized_BCGD(BCGD):
             self.cpu_time.append(t_after - t_before)
 
             if  ITERATION > 2 and self.early_stopping():
-                print("early_stopping: stopped iterations")
+                print("Stopping... Reached loss function plateau.")
                 break
 
 class GS_BCGD(BCGD):
     def __init__(self, max_iterations=100,
-                 flag_nesterov_rand_block = True, learning_rate_strategy ='constant', learning_rate=1e-5):
+                 use_nesterov_probs = True, learning_rate_strategy ='constant', learning_rate=1e-5):
         super().__init__()
         self.learning_rate = learning_rate
         self.max_iterations = max_iterations
         self.name = "GS_BCGD"
-
-        self.nesterov_rand_block = flag_nesterov_rand_block
+        self.nesterov_rand_block = use_nesterov_probs
         self.learning_rate_strategy = learning_rate_strategy
-
         self.gradient = []
         self.curr_rand_block= 0
 
@@ -583,93 +574,3 @@ class GS_BCGD(BCGD):
             if  ITERATION > 2 and self.early_stopping():
                 print("early_stopping: stopped iterations")
                 break
-
-
-# Data Creation Functions
-def data_creation(total_samples,unlabelled_ratio):
-
-    # set the seed for reproducibility - in order to affect data point generation as well
-    np.random.seed(10)
-
-    # generate random data points with 2 features and 2 labels
-    x, y = make_blobs(n_samples=total_samples, n_features=2, centers=2, cluster_std=1, random_state=10)
-    y = 2 * y - 1
-
-    # make %unlabelled_ratio of data points unlabeled
-    num_unlabeled_samples = int(unlabelled_ratio * total_samples)
-
-    # all_indices = labeled indices + unlabeled indices
-    unlabeled_indices = np.random.choice(total_samples, size=num_unlabeled_samples, replace=False)
-    labeled_indices = np.array(list(set(np.array(range(total_samples))) - set(unlabeled_indices)))
-
-    weight_lu, weight_uu = create_similarity_matrices(x,labeled_indices,unlabeled_indices)
-
-    return total_samples,unlabelled_ratio, x, y, unlabeled_indices,labeled_indices,weight_lu,weight_uu
-
-
-def create_similarity_matrices(x,labeled_indices,unlabeled_indices):
-    eps = 1e-8  # not to get 0 in denominator
-    weight_lu = 1 / (euclidean_distances(x[labeled_indices], x[unlabeled_indices]) + eps)
-    weight_uu = 1 / (euclidean_distances(x[unlabeled_indices], x[unlabeled_indices]) + eps)
-
-    return weight_lu, weight_uu
-
-if __name__ == '__main__':
-    # Save the current time
-    start_time = time.time()
-
-    gd1 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.0001)
-    gd2 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='lipschitz')
-    gd3 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='armijo')
-    # TODO: Compare gd1 vs gd2 vs gd3
-
-    r_bcgd1 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.001)
-    r_bcgd2 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='lipschitz')
-    r_bcgd3 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='block_based')
-    r_bcgd4 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='armijo')
-    r_bcgd5 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='block_based', flag_nesterov_rand_block=True)
-    # TODO: Compare the following:
-        # r_bcgd1 vs r_bcgd2 vs r_bcgd3 vs r_bcgd4
-        # r_bcgd1 vs r_bcgd3 vs r_bcgd5
-
-    gs_bcgd1 = GS_BCGD(max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.001)
-    gs_bcgd2 = GS_BCGD(max_iterations=5000, learning_rate_strategy='lipschitz')
-    gs_bcgd3 = GS_BCGD(max_iterations=5000, learning_rate_strategy='block_based')
-    gs_bcgd4 = GS_BCGD(max_iterations=5000, learning_rate_strategy='armijo')
-    gs_bcgd5 = GS_BCGD(max_iterations=5000, learning_rate_strategy='block_based', flag_nesterov_rand_block=True)
-
-    optimization_algorithms = [gd1, gd2, gd3, r_bcgd1, r_bcgd2, r_bcgd3, r_bcgd4, r_bcgd5,
-                               gs_bcgd1, gs_bcgd2, gs_bcgd3, gs_bcgd4, gs_bcgd5]
-
-    elapsed_time = []  # total time needed for current algorithm
-    optim_alg_loss_list = []
-    optim_alg_cpu_list = []
-    optim_alg_acc_list = []
-    i = 0
-    # data : tuple, x,y, labelled unlabelled indices, weight matrices
-    data = data_creation(total_samples=1000, unlabelled_ratio=0.9)
-    for optim_alg in optimization_algorithms:
-        print(f"{optim_alg.name} Start")
-        start_time = time.time()
-        # optim_alg.create_data()
-        # optim_alg.create_similarity_matrices()
-        optim_alg.load_data(*data)
-        optim_alg.optimize()
-        optim_alg.plot_points()
-        optim_alg.plot_loss(save_plot=False)
-        optim_alg.plot_accuracy(save_plot=False)
-        optim_alg.plot_cpu_time(save_plot=False)
-        optim_alg.save_output()
-
-        elapsed_time.append(time.time() - start_time)
-
-        optim_alg_loss_list.append(optim_alg.loss)
-        optim_alg_cpu_list.append(optim_alg.cpu_time)
-        optim_alg_acc_list.append(optim_alg.accuracy)
-
-        print(f"*" * 100)
-        if i == 1:
-            break
-            
-    print(f"Time Spent: {elapsed_time}")
-
