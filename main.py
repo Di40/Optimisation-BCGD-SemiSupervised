@@ -78,14 +78,13 @@ class Descent:
         The accuracy of the model on the labelled data at each iteration.
     """
 
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5,
-                 max_iterations=100):
+    def __init__(self, learning_rate=1e-5, max_iterations=100):
 
         # create data parameters
-        self.total_samples = total_samples
-        self.unlabelled_ratio = unlabelled_ratio
+        self.total_samples = None
+        self.unlabelled_ratio = None
         self.x = []
-        self.y = None
+        self.y = []
         self.unlabeled_indices = []
         self.labeled_indices = []
         self.true_labels_of_unlabeled = []
@@ -104,26 +103,17 @@ class Descent:
         self.cpu_time = []
         self.accuracy = []
 
-    def create_data(self):
+    def load_data(self, total_samples, unlabelled_ratio, x, y, unlabeled_indices, labeled_indices, weight_lu,
+                  weight_uu):
 
-        # set the seed for reproducibility - in order to affect data point generation as well
-        np.random.seed(10)
-
-        # generate random data points with 2 features and 2 labels
-        self.x, self.y = make_blobs(n_samples=self.total_samples, n_features=2, centers=2, cluster_std=1,
-                                    random_state=10)
-        self.y = 2 * self.y - 1
-
-        # plot the data points in a 2D scatter plot
-        # plt.scatter(self.x[:, 0], self.x[:, 1])
-        # plt.show()
-
-        # make %90 of data points unlabeled
-        num_unlabeled_samples = int(self.unlabelled_ratio * self.total_samples)
-
-        # all_indices = labeled indices + unlabeled indices
-        self.unlabeled_indices = np.random.choice(self.total_samples, size=num_unlabeled_samples, replace=False)
-        self.labeled_indices = np.array(list(set(np.array(range(self.total_samples))) - set(self.unlabeled_indices)))
+        self.total_samples = total_samples
+        self.unlabelled_ratio = unlabelled_ratio
+        self.x = x
+        self.y = y
+        self.unlabeled_indices = unlabeled_indices
+        self.labeled_indices = labeled_indices
+        self.weight_lu = weight_lu
+        self.weight_uu = weight_uu
 
         # hold initially labeled then unlabeled points
         self.true_labels_of_unlabeled = np.copy(self.y[self.unlabeled_indices])
@@ -132,13 +122,7 @@ class Descent:
 
         # assign initialization labels to unlabeled indices
         self.y = self.y.astype(float)
-        self.y[self.unlabeled_indices] = np.random.uniform(-1.0, 1.0, size=num_unlabeled_samples)
-
-    def create_similarity_matrices(self):
-        eps = 1e-8  # not to get 0 in denominator
-        self.weight_lu = 1 / (euclidean_distances(self.x[self.labeled_indices], self.x[self.unlabeled_indices]) + eps)
-        self.weight_uu = 1 / (euclidean_distances(self.x[self.unlabeled_indices], self.x[self.unlabeled_indices]) + eps)
-
+        self.y[self.unlabeled_indices] = np.random.uniform(-1.0, 1.0, size=len(self.unlabeled_indices))
 
     def calculate_loss(self,y_labelled, y_unlabelled):
 
@@ -279,20 +263,15 @@ class Descent:
             return True
 
 class Gradient_Descent(Descent):
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, threshold=1e-5,
-                 max_iterations=100, learning_rate_strategy='constant', learning_rate=1e-5):
+    def __init__(self, threshold=1e-5, max_iterations=100, learning_rate_strategy='constant', learning_rate=1e-5):
         super().__init__()
         self.learning_rate = learning_rate
         self.threshold = threshold
         self.max_iterations = max_iterations
         self.name = "GradientDescent"
 
-        self.total_samples = total_samples
-        self.unlabelled_ratio = unlabelled_ratio
-
         self.gradient = []
         self.learning_rate_strategy = learning_rate_strategy
-
 
     # Learning rate arranger algorithms
     def _armijo_rule(self, alpha = 0.05, delta = 0.95, gamma = 0.49):
@@ -400,17 +379,14 @@ class Gradient_Descent(Descent):
 
 
 class BCGD(Descent):
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5,
-                 max_iterations=100, flag_nesterov_rand_block = True, learning_rate_strategy ='constant'):
+    def __init__(self, max_iterations=100, flag_nesterov_rand_block = True,
+                 learning_rate_strategy ='constant', learning_rate=1e-5,):
         super().__init__()
         self.learning_rate = learning_rate
         self.max_iterations = max_iterations
         self.name = "Block_Descent"
         self.nesterov_rand_block = flag_nesterov_rand_block
         self.learning_rate_strategy = learning_rate_strategy
-
-        self.total_samples = total_samples
-        self.unlabelled_ratio = unlabelled_ratio
 
         self.gradient = []
         self.curr_rand_block= 0
@@ -469,17 +445,14 @@ class BCGD(Descent):
         return self.learning_rate
 
 class Randomized_BCGD(BCGD):
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5,
-                 max_iterations=100, flag_nesterov_rand_block = True, learning_rate_strategy ='constant'):
+    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, max_iterations=100,
+                 flag_nesterov_rand_block = True, learning_rate_strategy ='constant', learning_rate=1e-5):
         super().__init__()
         self.learning_rate = learning_rate
         self.max_iterations = max_iterations
         self.name = "R_BCGD"
         self.nesterov_rand_block = flag_nesterov_rand_block
         self.learning_rate_strategy = learning_rate_strategy
-
-        self.total_samples = total_samples
-        self.unlabelled_ratio = unlabelled_ratio
 
         self.gradient = []
         self.curr_rand_block= 0
@@ -546,8 +519,8 @@ class Randomized_BCGD(BCGD):
                 break
 
 class GS_BCGD(BCGD):
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5,
-                 max_iterations=100,flag_nesterov_rand_block = True, learning_rate_strategy ='constant'):
+    def __init__(self, max_iterations=100,
+                 flag_nesterov_rand_block = True, learning_rate_strategy ='constant', learning_rate=1e-5):
         super().__init__()
         self.learning_rate = learning_rate
         self.max_iterations = max_iterations
@@ -555,9 +528,6 @@ class GS_BCGD(BCGD):
 
         self.nesterov_rand_block = flag_nesterov_rand_block
         self.learning_rate_strategy = learning_rate_strategy
-
-        self.total_samples = total_samples
-        self.unlabelled_ratio = unlabelled_ratio
 
         self.gradient = []
         self.curr_rand_block= 0
@@ -615,36 +585,91 @@ class GS_BCGD(BCGD):
                 break
 
 
+# Data Creation Functions
+def data_creation(total_samples,unlabelled_ratio):
+
+    # set the seed for reproducibility - in order to affect data point generation as well
+    np.random.seed(10)
+
+    # generate random data points with 2 features and 2 labels
+    x, y = make_blobs(n_samples=total_samples, n_features=2, centers=2, cluster_std=1, random_state=10)
+    y = 2 * y - 1
+
+    # make %unlabelled_ratio of data points unlabeled
+    num_unlabeled_samples = int(unlabelled_ratio * total_samples)
+
+    # all_indices = labeled indices + unlabeled indices
+    unlabeled_indices = np.random.choice(total_samples, size=num_unlabeled_samples, replace=False)
+    labeled_indices = np.array(list(set(np.array(range(total_samples))) - set(unlabeled_indices)))
+
+    weight_lu, weight_uu = create_similarity_matrices(x,labeled_indices,unlabeled_indices)
+
+    return total_samples,unlabelled_ratio, x, y, unlabeled_indices,labeled_indices,weight_lu,weight_uu
+
+
+def create_similarity_matrices(x,labeled_indices,unlabeled_indices):
+    eps = 1e-8  # not to get 0 in denominator
+    weight_lu = 1 / (euclidean_distances(x[labeled_indices], x[unlabeled_indices]) + eps)
+    weight_uu = 1 / (euclidean_distances(x[unlabeled_indices], x[unlabeled_indices]) + eps)
+
+    return weight_lu, weight_uu
+
 if __name__ == '__main__':
-
-
-    #Save the current time
+    # Save the current time
     start_time = time.time()
-    #gd = GradientDescent(total_samples=1000, unlabelled_ratio=0.9,
-     #                         learning_rate=0.0001, threshold=0.0001, max_iterations=100)
 
-    rbcgd = Randomized_BCGD(total_samples=1000, unlabelled_ratio=0.9,
-                            learning_rate=0.001, max_iterations=5000,
-                            learning_rate_strategy='block_based', flag_nesterov_rand_block=True)
+    gd1 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.0001)
+    gd2 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='lipschitz')
+    gd3 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='armijo')
+    # TODO: Compare gd1 vs gd2 vs gd3
 
-    gd = Gradient_Descent(total_samples=500, unlabelled_ratio=0.9,
-                            learning_rate=0.0001, threshold=0.01,
-                             max_iterations=5000, learning_rate_strategy='constant')
+    r_bcgd1 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.001)
+    r_bcgd2 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='lipschitz')
+    r_bcgd3 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='block_based')
+    r_bcgd4 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='armijo')
+    r_bcgd5 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='block_based', flag_nesterov_rand_block=True)
+    # TODO: Compare the following:
+        # r_bcgd1 vs r_bcgd2 vs r_bcgd3 vs r_bcgd4
+        # r_bcgd1 vs r_bcgd3 vs r_bcgd5
 
-    optimization_algorithms = [rbcgd] # add more/use only one
+    gs_bcgd1 = GS_BCGD(max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.001)
+    gs_bcgd2 = GS_BCGD(max_iterations=5000, learning_rate_strategy='lipschitz')
+    gs_bcgd3 = GS_BCGD(max_iterations=5000, learning_rate_strategy='block_based')
+    gs_bcgd4 = GS_BCGD(max_iterations=5000, learning_rate_strategy='armijo')
+    gs_bcgd5 = GS_BCGD(max_iterations=5000, learning_rate_strategy='block_based', flag_nesterov_rand_block=True)
+
+    optimization_algorithms = [gd1, gd2, gd3, r_bcgd1, r_bcgd2, r_bcgd3, r_bcgd4, r_bcgd5,
+                               gs_bcgd1, gs_bcgd2, gs_bcgd3, gs_bcgd4, gs_bcgd5]
+
+    elapsed_time = []  # total time needed for current algorithm
+    optim_alg_loss_list = []
+    optim_alg_cpu_list = []
+    optim_alg_acc_list = []
+    i = 0
+    # data : tuple, x,y, labelled unlabelled indices, weight matrices
+    data = data_creation(total_samples=1000, unlabelled_ratio=0.9)
     for optim_alg in optimization_algorithms:
         print(f"{optim_alg.name} Start")
         start_time = time.time()
-        optim_alg.create_data()
-        optim_alg.create_similarity_matrices()
+        # optim_alg.create_data()
+        # optim_alg.create_similarity_matrices()
+        optim_alg.load_data(*data)
         optim_alg.optimize()
         optim_alg.plot_points()
         optim_alg.plot_loss(save_plot=False)
         optim_alg.plot_accuracy(save_plot=False)
         optim_alg.plot_cpu_time(save_plot=False)
         optim_alg.save_output()
-        elapsed_time = time.time() - start_time
-        print(f"Time Spent:{elapsed_time}")
-        print(f"*"*100)
 
-    print("end")
+        elapsed_time.append(time.time() - start_time)
+
+        optim_alg_loss_list.append(optim_alg.loss)
+        optim_alg_cpu_list.append(optim_alg.cpu_time)
+        optim_alg_acc_list.append(optim_alg.accuracy)
+
+        print(f"*" * 100)
+        if i == 1:
+            break
+            
+    print(f"Time Spent: {elapsed_time}")
+
