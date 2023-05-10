@@ -78,14 +78,13 @@ class Descent:
         The accuracy of the model on the labelled data at each iteration.
     """
 
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5,
-                 max_iterations=100):
+    def __init__(self,learning_rate=1e-5,max_iterations=100):
 
         # create data parameters
-        self.total_samples = total_samples
-        self.unlabelled_ratio = unlabelled_ratio
+        self.total_samples = None
+        self.unlabelled_ratio = None
         self.x = []
-        self.y = None
+        self.y = []
         self.unlabeled_indices = []
         self.labeled_indices = []
         self.true_labels_of_unlabeled = []
@@ -104,40 +103,56 @@ class Descent:
         self.cpu_time = []
         self.accuracy = []
 
-    def create_data(self):
+    def load_data(self,total_samples,unlabelled_ratio,x,y,unlabeled_indices,labeled_indices,weight_lu,weight_uu):
 
-        # set the seed for reproducibility - in order to affect data point generation as well
-        np.random.seed(10)
-
-        # generate random data points with 2 features and 2 labels
-        self.x, self.y = make_blobs(n_samples=self.total_samples, n_features=2, centers=2, cluster_std=1,
-                                    random_state=10)
-        self.y = 2 * self.y - 1
-
-        # plot the data points in a 2D scatter plot
-        # plt.scatter(self.x[:, 0], self.x[:, 1])
-        # plt.show()
-
-        # make %90 of data points unlabeled
-        num_unlabeled_samples = int(self.unlabelled_ratio * self.total_samples)
-
-        # all_indices = labeled indices + unlabeled indices
-        self.unlabeled_indices = np.random.choice(self.total_samples, size=num_unlabeled_samples, replace=False)
-        self.labeled_indices = np.array(list(set(np.array(range(self.total_samples))) - set(self.unlabeled_indices)))
+        self.total_samples = total_samples
+        self.unlabelled_ratio = unlabelled_ratio
+        self.x = x
+        self.y = y
+        self.unlabeled_indices = unlabeled_indices
+        self.labeled_indices = labeled_indices
+        self.weight_lu = weight_lu
+        self.weight_uu = weight_uu
 
         # hold initially labeled then unlabeled points
-        self.true_labels_of_unlabeled = np.copy(self.y[self.unlabeled_indices])
+        self.true_labels_of_unlabeled  = np.copy(self.y[self.unlabeled_indices])
 
         self.plot_points(True)
 
         # assign initialization labels to unlabeled indices
         self.y = self.y.astype(float)
-        self.y[self.unlabeled_indices] = np.random.uniform(-1.0, 1.0, size=num_unlabeled_samples)
+        self.y[self.unlabeled_indices] = np.random.uniform(-1.0, 1.0, size=len(self.unlabeled_indices))
 
-    def create_similarity_matrices(self):
-        eps = 1e-8  # not to get 0 in denominator
-        self.weight_lu = 1 / (euclidean_distances(self.x[self.labeled_indices], self.x[self.unlabeled_indices]) + eps)
-        self.weight_uu = 1 / (euclidean_distances(self.x[self.unlabeled_indices], self.x[self.unlabeled_indices]) + eps)
+
+    # def create_data(self):
+    #
+    #     # set the seed for reproducibility - in order to affect data point generation as well
+    #     np.random.seed(10)
+    #
+    #     # generate random data points with 2 features and 2 labels
+    #     self.x, self.y = make_blobs(n_samples=self.total_samples, n_features=2, centers=2, cluster_std=1,
+    #                                 random_state=10)
+    #     self.y = 2 * self.y - 1
+    #
+    #     # make %90 of data points unlabeled
+    #     num_unlabeled_samples = int(self.unlabelled_ratio * self.total_samples)
+    #
+    #     # all_indices = labeled indices + unlabeled indices
+    #     self.unlabeled_indices = np.random.choice(self.total_samples, size=num_unlabeled_samples, replace=False)
+    #     self.labeled_indices = np.array(list(set(np.array(range(self.total_samples))) - set(self.unlabeled_indices)))
+    #
+    #     # hold initially labeled then unlabeled points
+    #     self.true_labels_of_unlabeled = np.copy(self.y[self.unlabeled_indices])
+    #
+    #     self.plot_points(True)
+    #
+    #     # assign initialization labels to unlabeled indices
+    #     self.y = self.y.astype(float)
+    #     self.y[self.unlabeled_indices] = np.random.uniform(-1.0, 1.0, size=num_unlabeled_samples)
+    # def create_similarity_matrices(self):
+    #     eps = 1e-8  # not to get 0 in denominator
+    #     self.weight_lu = 1 / (euclidean_distances(self.x[self.labeled_indices], self.x[self.unlabeled_indices]) + eps)
+    #     self.weight_uu = 1 / (euclidean_distances(self.x[self.unlabeled_indices], self.x[self.unlabeled_indices]) + eps)
 
 
     def calculate_loss(self,y_labelled, y_unlabelled):
@@ -154,7 +169,6 @@ class Descent:
         loss_uu = np.sum(y_diff * self.weight_uu.T)  # shape (len(unlabeled),len(unlabeled))
 
         return (loss_lu + loss_uu / 2)  # scalar
-
 
     def calculate_accuracy(self):
         rounded_y = np.where(self.y >= 0, 1, -1)
@@ -279,16 +293,13 @@ class Descent:
             return True
 
 class Gradient_Descent(Descent):
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5, threshold=1e-5,
+    def __init__(self, learning_rate=1e-5, threshold=1e-5,
                  max_iterations=100,learning_rate_strategy='constant'):
         super().__init__()
         self.learning_rate = learning_rate
         self.threshold = threshold
         self.max_iterations = max_iterations
         self.name = "GradientDescent"
-
-        self.total_samples = total_samples
-        self.unlabelled_ratio = unlabelled_ratio
 
         self.gradient = []
         self.learning_rate_strategy = learning_rate_strategy
@@ -402,7 +413,7 @@ class Gradient_Descent(Descent):
 
 
 class BCGD(Descent):
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5,
+    def __init__(self, learning_rate=1e-5,
                  max_iterations=100, flag_nesterov_rand_block = True, learning_rate_strategy ='constant'):
         super().__init__()
         self.learning_rate = learning_rate
@@ -410,9 +421,6 @@ class BCGD(Descent):
         self.name = "Block_Descent"
         self.nesterov_rand_block = flag_nesterov_rand_block
         self.learning_rate_strategy = learning_rate_strategy
-
-        self.total_samples = total_samples
-        self.unlabelled_ratio = unlabelled_ratio
 
         self.gradient = []
         self.curr_rand_block= 0
@@ -448,7 +456,7 @@ class BCGD(Descent):
 
 
 class Randomized_BCGD(BCGD):
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5,
+    def __init__(self, learning_rate=1e-5,
                  max_iterations=100, flag_nesterov_rand_block = True, learning_rate_strategy ='constant'):
         super().__init__()
         self.learning_rate = learning_rate
@@ -456,9 +464,6 @@ class Randomized_BCGD(BCGD):
         self.name = "R_BCGD"
         self.nesterov_rand_block = flag_nesterov_rand_block
         self.learning_rate_strategy = learning_rate_strategy
-
-        self.total_samples = total_samples
-        self.unlabelled_ratio = unlabelled_ratio
 
         self.gradient = []
         self.curr_rand_block= 0
@@ -522,7 +527,7 @@ class Randomized_BCGD(BCGD):
                 break
 
 class GS_BCGD(BCGD):
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, learning_rate=1e-5,
+    def __init__(self, learning_rate=1e-5,
                  max_iterations=100,flag_nesterov_rand_block = True, learning_rate_strategy ='constant'):
         super().__init__()
         self.learning_rate = learning_rate
@@ -531,9 +536,6 @@ class GS_BCGD(BCGD):
 
         self.nesterov_rand_block = flag_nesterov_rand_block
         self.learning_rate_strategy = learning_rate_strategy
-
-        self.total_samples = total_samples
-        self.unlabelled_ratio = unlabelled_ratio
 
         self.gradient = []
         self.curr_rand_block= 0
@@ -591,6 +593,38 @@ class GS_BCGD(BCGD):
                 break
 
 
+# Data Creation Functions
+def data_creation(total_samples,unlabelled_ratio):
+
+    # set the seed for reproducibility - in order to affect data point generation as well
+    np.random.seed(10)
+
+    # generate random data points with 2 features and 2 labels
+    x, y = make_blobs(n_samples=total_samples, n_features=2, centers=2, cluster_std=1,
+                                random_state=10)
+    y = 2 * y - 1
+
+    # make %unlabelled_ratio of data points unlabeled
+    num_unlabeled_samples = int(unlabelled_ratio * total_samples)
+
+    # all_indices = labeled indices + unlabeled indices
+    unlabeled_indices = np.random.choice(total_samples, size=num_unlabeled_samples, replace=False)
+    labeled_indices = np.array(list(set(np.array(range(total_samples))) - set(unlabeled_indices)))
+
+    weight_lu, weight_uu = create_similarity_matrices(x,labeled_indices,unlabeled_indices)
+
+    return total_samples,unlabelled_ratio,x,y,unlabeled_indices,labeled_indices,weight_lu,weight_uu
+
+
+def create_similarity_matrices(x,labeled_indices,unlabeled_indices):
+    eps = 1e-8  # not to get 0 in denominator
+    weight_lu = 1 / (euclidean_distances(x[labeled_indices], x[unlabeled_indices]) + eps)
+    weight_uu = 1 / (euclidean_distances(x[unlabeled_indices], x[unlabeled_indices]) + eps)
+
+    return weight_lu, weight_uu
+
+
+
 if __name__ == '__main__':
 
 
@@ -599,26 +633,30 @@ if __name__ == '__main__':
     #gd = GradientDescent(total_samples=1000, unlabelled_ratio=0.9,
      #                         learning_rate=0.0001, threshold=0.0001, max_iterations=100)
 
-    rbcgd = Randomized_BCGD(total_samples=1000, unlabelled_ratio=0.9,
-                            learning_rate=0.001, max_iterations=5000,
+    rbcgd = Randomized_BCGD(learning_rate=0.001, max_iterations=1000,
                             learning_rate_strategy='block_based', flag_nesterov_rand_block=True)
 
-    gd = Gradient_Descent(total_samples=500, unlabelled_ratio=0.9,
-                            learning_rate=0.0001, threshold=0.01,
-                             max_iterations=5000, learning_rate_strategy='constant')
+    gd = Gradient_Descent( learning_rate=0.001, threshold=0.01,
+                             max_iterations=1000, learning_rate_strategy='constant')
 
-    optimization_algorithms = [rbcgd] # add more/use only one
+    gs = GS_BCGD( learning_rate=0.001,max_iterations=1000, learning_rate_strategy='constant')
+
+    # data : tuple, x,y, labelled unlabelled indices, weight matrices
+    data = data_creation(total_samples=1000,unlabelled_ratio=0.9)
+
+    optimization_algorithms = [rbcgd,gs,gd] # add more/use only one
     for optim_alg in optimization_algorithms:
         print(f"{optim_alg.name} Start")
         start_time = time.time()
-        optim_alg.create_data()
-        optim_alg.create_similarity_matrices()
+        optim_alg.load_data(*data)
+        #optim_alg.create_data()
+        #optim_alg.create_similarity_matrices()
         optim_alg.optimize()
         optim_alg.plot_points()
         optim_alg.plot_loss(save_plot=False)
         optim_alg.plot_accuracy(save_plot=False)
         optim_alg.plot_cpu_time(save_plot=False)
-        optim_alg.save_output()
+        #optim_alg.save_output()
         elapsed_time = time.time() - start_time
         print(f"Time Spent:{elapsed_time}")
         print(f"*"*100)
