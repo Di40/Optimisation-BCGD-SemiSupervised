@@ -511,13 +511,11 @@ class Randomized_BCGD(BCGD):
                 break
 
 class GS_BCGD(BCGD):
-    def __init__(self, max_iterations=100,
-                 use_nesterov_probs = True, learning_rate_strategy ='constant', learning_rate=1e-5):
+    def __init__(self, max_iterations=100, learning_rate_strategy ='constant', learning_rate=1e-5):
         super().__init__()
         self.learning_rate = learning_rate
         self.max_iterations = max_iterations
         self.name = "GS_BCGD"
-        self.nesterov_rand_block = use_nesterov_probs
         self.learning_rate_strategy = learning_rate_strategy
         self.gradient = []
         self.curr_rand_block= 0

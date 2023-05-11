@@ -88,6 +88,7 @@ def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_axis=False)
                 markerfacecolor='white',
                 # markersize = 2
         )
+        #TODO: If you want to change the span of the x-axis change the values here. Feel free to use fixed values as well.
         if x_label == "CPU Time":
             ax.set_xlim(0, x[-1] * 0.25)
         else:
