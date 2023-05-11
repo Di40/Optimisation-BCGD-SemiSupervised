@@ -7,8 +7,8 @@ import numpy as np
 if __name__ == '__main__':
 
     # data : tuple, x,y, labelled unlabelled indices, weight matrices
-    #data = data_creation(total_samples=1000, unlabelled_ratio=0.9)
-    data = real_data(unlabelled_ratio=0.9)
+    data = data_creation(total_samples=1000, unlabelled_ratio=0.9)
+    #data = real_data(unlabelled_ratio=0.9)
 
     gd1 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.0001)
     gd2 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='lipschitz')
@@ -52,9 +52,6 @@ if __name__ == '__main__':
 
         df_results.loc[count] = [optim_alg.loss, optim_alg.cpu_time, optim_alg.accuracy]
 
-        if count==1:
-            break
-
     print(f"Time Spent: {elapsed_time}")
     from tabulate import tabulate
     print(tabulate(df_results, headers='keys'))
@@ -63,21 +60,21 @@ if __name__ == '__main__':
     iteration_list = [list(range(1, n+1)) for n in iteration_list]
     cpu_time_list = [np.cumsum(l) for l in df_results["cpu_time"].tolist()]
 
-    # plot_curves(df_results["loss"].tolist(), iteration_list,
-    #             "Iteration", "Loss", "Loss vs Iteration",
-    #             df_results.index.tolist())
+    plot_curves(df_results["loss"].tolist(), iteration_list,
+                "Iteration", "Loss", "Loss vs Iteration",
+                df_results.index.tolist())
 
-    # plot_curves(df_results["loss"].tolist(), cpu_time_list,
-    #             "CPU Time", "Loss", "Loss vs CPU Time",
-    #             df_results.index.tolist())
+    plot_curves(df_results["loss"].tolist(), cpu_time_list,
+                "CPU Time", "Loss", "Loss vs CPU Time",
+                df_results.index.tolist())
 
-    # plot_curves(df_results["accuracy"].tolist(), iteration_list,
-    #             "Iteration", "Accuracy", "Accuracy vs Iteration",
-    #             df_results.index.tolist())
+    plot_curves(df_results["accuracy"].tolist(), iteration_list,
+                "Iteration", "Accuracy", "Accuracy vs Iteration",
+                df_results.index.tolist())
 
-    #plot_bar_metrics(df_results)
+    plot_bar_metrics(df_results)
 
-    #plot_bar_per_model(df_results, "loss")
-    #plot_bar_per_model(df_results, "accuracy")
-    #plot_bar_per_model(df_results, "cpu_time")
+    plot_bar_per_model(df_results, "loss")
+    plot_bar_per_model(df_results, "accuracy")
+    plot_bar_per_model(df_results, "cpu_time")
     plot_bar_per_model(df_results, "iterations")

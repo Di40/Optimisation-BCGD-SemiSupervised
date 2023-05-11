@@ -32,7 +32,7 @@ def create_similarity_matrices(x,labeled_indices,unlabeled_indices):
 
     return weight_lu, weight_uu
 
-def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_axis=True):
+def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_axis=False):
     font = 16
     legend_size = 14
     label_size = 14
@@ -115,11 +115,19 @@ def plot_bar_metrics(result_df):
     # Scale to 0-1 range
     result_df = result_df.apply(lambda x: x/x.max(), axis=0)
 
-    ax = result_df.plot.bar(rot=0,
-                            ylabel='Metrics results',
-                            cmap='Paired',
-                            figsize=(8, 6)
-                            )
+    df_transposed = result_df.transpose()
+
+    ax = df_transposed.plot.bar(rot=0,
+                                ylabel='Metrics results',
+                                cmap='Paired',
+                                figsize=(8, 6)
+                                )
+    for container in ax.containers:
+        for i, child in enumerate(container):
+            x = child.get_x() + child.get_width() / 2
+            y = child.get_height() / 2
+            ax.text(x, y, f'{child.get_height():.2f}', ha='center', va='center', rotation=90, fontsize=10)
+
     label_size = 15
     legend_size = 17
     font_size = 17
@@ -149,8 +157,13 @@ def plot_bar_per_model(result_df, metric="loss"):
         else:
             raise Exception("Wrong metric.")
 
+    plt.figure(figsize=(7, 5))
     # Plot the values as a bar graph
     plt.bar(range(len(result_list)), result_list)
+    # range(len(result_list)) are the values on the x-axis
+
+    for i, v in enumerate(result_list):
+        plt.text(i, v / 2, f'{v:.2f}', ha='center', va='center', rotation=90)
 
     # Set the x-axis ticks to show the index of each value in the list
     plt.xticks(range(len(result_list)), range(len(result_list)))
@@ -159,7 +172,8 @@ def plot_bar_per_model(result_df, metric="loss"):
     plt.xlabel('Models')
     plt.ylabel(metric)
     plt.title(f'{metric} values for different models')
-
+    plt.grid()
     plt.show()
+
 
 
