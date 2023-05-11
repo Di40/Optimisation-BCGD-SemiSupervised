@@ -42,10 +42,10 @@ if __name__ == '__main__':
     r_bcgd_fixed_2.name = 'LR Fixed ' + str(r_bcgd_fixed_2.learning_rate)
     r_bcgd_fixed_3 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.001)
     r_bcgd_fixed_3.name = 'LR Fixed ' + str(r_bcgd_fixed_3.learning_rate)
-    r_bcgd_fixed_4 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.005)
-    r_bcgd_fixed_4.name = 'LR Fixed ' + str(r_bcgd_fixed_4.learning_rate)
-    r_bcgd_fixed_5 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.01)
-    r_bcgd_fixed_5.name = 'LR Fixed ' + str(r_bcgd_fixed_5.learning_rate)
+    #r_bcgd_fixed_4 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.005)
+    #r_bcgd_fixed_4.name = 'LR Fixed ' + str(r_bcgd_fixed_4.learning_rate)
+    # r_bcgd_fixed_5 = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.01)
+    # r_bcgd_fixed_5.name = 'LR Fixed ' + str(r_bcgd_fixed_5.learning_rate)
 
     # If r_bcgd_fixed_5 is the best:
     # r_bcgd1 = r_bcgd_fixed_5
@@ -91,7 +91,9 @@ if __name__ == '__main__':
     # optimization_algorithms = [gd1, gd2, gd3, r_bcgd1, r_bcgd2, r_bcgd3, r_bcgd4, r_bcgd5,
     #                            gs_bcgd1, gs_bcgd2, gs_bcgd3, gs_bcgd4, gs_bcgd5]
 
-    optimization_algorithms = [gd2] # TODO: Enter here the algorithms that you are testing (as shown above)
+    optimization_algorithms = [r_bcgd_fixed_1,r_bcgd_fixed_2,
+                               r_bcgd_fixed_3
+                               ] # TODO: Enter here the algorithms that you are testing (as shown above)
 
     col_names = ["optim_alg", "loss", "cpu_time", "accuracy"]
     df_results = pd.DataFrame(columns=col_names)
@@ -117,10 +119,10 @@ if __name__ == '__main__':
 
     #TODO: Uncomment/Comment lines as you need them for testing
     plot_curves(df_results["loss"].tolist(), iteration_list,
-                "Iteration", "Loss", "Loss vs Iteration", legend_list)
+                "Iteration", "Loss", "Loss vs Iteration", legend_list,log_y=True)
 
     plot_curves(df_results["loss"].tolist(), cpu_time_list,
-                "CPU Time", "Loss", "Loss vs CPU Time", legend_list)
+                "CPU Time", "Loss", "Loss vs CPU Time", legend_list,log_y=True)
 
     plot_curves(df_results["accuracy"].tolist(), iteration_list,
                 "Iteration", "Accuracy", "Accuracy vs Iteration", legend_list)

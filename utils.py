@@ -70,7 +70,7 @@ def create_similarity_matrices(x,labeled_indices,unlabeled_indices):
 
     return weight_lu, weight_uu
 
-def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_axis=False):
+def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_x=False, log_y=False):
     font = 16
     legend_size = 14
     label_size = 14
@@ -79,8 +79,10 @@ def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_axis=False)
 
     for idx, y in enumerate(y_list):
         x = x_list[idx]
-        if log_axis:
+        if log_x:
             x = [log(i+1) for i in x]
+        if log_y:
+            y= [log(i+1) for i in y]
         ax.plot(x, y,
                 marker='o',
                 linestyle='--',
@@ -98,7 +100,11 @@ def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_axis=False)
     plt.legend(legend, prop={'size': legend_size})
     plt.title(title, fontsize=font)
     plt.xlabel(x_label, fontsize=font)
-    plt.ylabel(y_label, fontsize=font)
+    if log_y:
+        plt.ylabel("log "+y_label, fontsize=font)
+    else:
+        plt.ylabel(y_label, fontsize=font)
+
     plt.tick_params(axis='both', labelsize=label_size)
     plt.grid()
     plt.show()
