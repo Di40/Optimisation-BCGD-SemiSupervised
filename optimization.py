@@ -100,8 +100,7 @@ class Descent:
 
         self.verbose = verbose
 
-    def load_data(self, total_samples, unlabelled_ratio, x, y, unlabeled_indices, labeled_indices, weight_lu,
-                  weight_uu):
+    def load_data(self, total_samples, unlabelled_ratio, x, y, unlabeled_indices, labeled_indices, weight_lu, weight_uu):
 
         self.total_samples = total_samples
         self.unlabelled_ratio = unlabelled_ratio
@@ -115,7 +114,7 @@ class Descent:
         # hold initially labeled then unlabeled points
         self.true_labels_of_unlabeled = np.copy(self.y[self.unlabeled_indices])
 
-        self.plot_points(True)
+        #self.plot_points()
 
         # assign initialization labels to unlabeled indices
         self.y = self.y.astype(float)
@@ -223,7 +222,7 @@ class Descent:
     def save_output(self):
         now = datetime.datetime.now()
         time_str = now.strftime("%m.%d.2023-%H.%M")
-        filename = '{}_date {}, acc {:.2f}.png'.format(self.name, time_str, self.accuracy[-1] * 100)
+        filename = '{}_date {}, acc {:.2f}.png'.format(self.name.replace("/", "_"), time_str, self.accuracy[-1] * 100)
 
         number_labelled = self.total_samples - self.total_samples * self.unlabelled_ratio
         number_unlabelled = self.total_samples * self.unlabelled_ratio
@@ -366,7 +365,7 @@ class Gradient_Descent(Descent):
             t_after = process_time()
             self.cpu_time.append(t_after - t_before)
 
-            if abs(np.linalg.norm(np.array(self.gradient[-1]))) < self.threshold:
+            if np.linalg.norm(np.array(self.gradient[-1])) < self.threshold:
                 print("Stopping... Reached gradient norm threshold.")
                 break
 
@@ -440,8 +439,8 @@ class BCGD(Descent):
         return self.learning_rate
 
 class Randomized_BCGD(BCGD):
-    def __init__(self, total_samples=1000, unlabelled_ratio=0.9, max_iterations=100,
-                 use_nesterov_probs = False, learning_rate_strategy ='constant', learning_rate=1e-5):
+    def __init__(self, max_iterations=100, use_nesterov_probs = False,
+                 learning_rate_strategy ='constant', learning_rate=1e-5):
         super().__init__()
         self.learning_rate = learning_rate
         self.max_iterations = max_iterations

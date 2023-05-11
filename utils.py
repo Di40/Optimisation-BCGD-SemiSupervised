@@ -25,40 +25,6 @@ def data_creation(total_samples,unlabelled_ratio):
 
     return total_samples,unlabelled_ratio, x, y, unlabeled_indices,labeled_indices,weight_lu,weight_uu
 
-def create_similarity_matrices(x,labeled_indices,unlabeled_indices):
-    eps = 1e-8  # not to get 0 in denominator
-    weight_lu = 1 / (euclidean_distances(x[labeled_indices], x[unlabeled_indices]) + eps)
-    weight_uu = 1 / (euclidean_distances(x[unlabeled_indices], x[unlabeled_indices]) + eps)
-
-    return weight_lu, weight_uu
-
-def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_axis=False):
-    font = 16
-    legend_size = 14
-    label_size = 14
-
-    _, ax = plt.subplots(figsize=(7, 5))
-
-    for idx, y in enumerate(y_list):
-        x = x_list[idx]
-        if log_axis:
-            x = [log(i+1) for i in x]
-        ax.plot(x, y,
-                marker='o',
-                linestyle='--',
-                linewidth=1.3,
-                markerfacecolor='white',
-                # markersize = 2
-        )
-
-    plt.legend(legend, prop={'size': legend_size})
-    plt.title(title, fontsize=font)
-    plt.xlabel(x_label, fontsize=font)
-    plt.ylabel(y_label, fontsize=font)
-    plt.tick_params(axis='both', labelsize=label_size)
-    plt.grid()
-    plt.show()
-
 def real_data(unlabelled_ratio = 0.9):
 
     # set the seed for reproducibility - in order to affect data point generation as well
@@ -97,20 +63,60 @@ def real_data(unlabelled_ratio = 0.9):
 
     return total_samples, unlabelled_ratio, x, y, unlabeled_indices, labeled_indices, weight_lu, weight_uu
 
+def create_similarity_matrices(x,labeled_indices,unlabeled_indices):
+    eps = 1e-8  # not to get 0 in denominator
+    weight_lu = 1 / (euclidean_distances(x[labeled_indices], x[unlabeled_indices]) + eps)
+    weight_uu = 1 / (euclidean_distances(x[unlabeled_indices], x[unlabeled_indices]) + eps)
+
+    return weight_lu, weight_uu
+
+def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_axis=False):
+    font = 16
+    legend_size = 14
+    label_size = 14
+
+    _, ax = plt.subplots(figsize=(7, 5))
+
+    for idx, y in enumerate(y_list):
+        x = x_list[idx]
+        if log_axis:
+            x = [log(i+1) for i in x]
+        ax.plot(x, y,
+                marker='o',
+                linestyle='--',
+                linewidth=1.3,
+                markerfacecolor='white',
+                # markersize = 2
+        )
+        if x_label == "CPU Time":
+            ax.set_xlim(0, x[-1] * 0.25)
+        else:
+            ax.set_xlim(0, len(x) * 0.5)
+
+
+    plt.legend(legend, prop={'size': legend_size})
+    plt.title(title, fontsize=font)
+    plt.xlabel(x_label, fontsize=font)
+    plt.ylabel(y_label, fontsize=font)
+    plt.tick_params(axis='both', labelsize=label_size)
+    plt.grid()
+    plt.show()
+
 def plot_bar_metrics(result_df):
 
-    result_df["loss_final"]     = 0.0
-    result_df["accuracy_final"] = 0.0
-    result_df["iterations"]     = 0.0
-    result_df["cpu_total"]      = 0.0
+    #result_df["Loss final"]     = 0.0
+    result_df["Accuracy"]       = 0.0
+    result_df["Iterations"]     = 0.0
+    result_df["CPU total"]      = 0.0
 
     for idx in result_df.index:
-        result_df.loc[idx, "loss_final"]     = result_df.loc[idx, "loss"][-1]
-        result_df.loc[idx, "accuracy_final"] = result_df.loc[idx, "accuracy"][-1]
-        result_df.loc[idx, "iterations"]     = len(result_df.loc[idx, "loss"])
-        result_df.loc[idx, "cpu_total"]      = sum(result_df.loc[idx, "cpu_time"])
+        result_df.loc[idx, "Accuracy"]       = result_df.loc[idx, "accuracy"][-1]
+        result_df.loc[idx, "Iterations"]     = len(result_df.loc[idx, "loss"])
+        result_df.loc[idx, "CPU total"]      = sum(result_df.loc[idx, "cpu_time"])
+        #result_df.loc[idx, "Loss final"]     = result_df.loc[idx, "loss"][-1]
 
-    result_df = result_df.drop(['loss', 'accuracy', 'cpu_time'], axis=1)
+    legend_list = result_df['optim_alg']
+    result_df = result_df.drop(['optim_alg', 'loss', 'accuracy', 'cpu_time'], axis=1)
 
     # Scale to 0-1 range
     result_df = result_df.apply(lambda x: x/x.max(), axis=0)
@@ -137,7 +143,7 @@ def plot_bar_metrics(result_df):
     ax.set_ylabel('Metrics scores', fontsize=font_size)
     ax.tick_params(axis='y', labelsize=label_size)
     ax.tick_params(axis='x', labelsize=label_size)
-    ax.legend(loc=3, prop={'size': legend_size})
+    ax.legend(loc='upper right', labels=legend_list)
     plt.grid()
     plt.show()
 
