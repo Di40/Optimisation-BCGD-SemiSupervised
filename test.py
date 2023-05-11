@@ -66,6 +66,8 @@ if __name__ == '__main__':
         elapsed_time.append(time.time() - start_time)
         df_results.loc[count] = [optim_alg.name, optim_alg.loss, optim_alg.cpu_time, optim_alg.accuracy]
 
+    df_results.to_csv('optimization_results.csv', index=False)
+
     # print(f"Time Spent: {elapsed_time}")
     # from tabulate import tabulate
     # print(tabulate(df_results, headers='keys'))
