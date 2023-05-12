@@ -1,0 +1,12 @@
+r_bcgd with constant learning rate 0.01, 0.005 diverge and loss becomes infinity
+r_bcgd with constant learning rate 0.001 first loss decrease and then starts to converge
+r_bcgd with constant learning rate 0.0005 converges, good
+r_bcgd with constant learning rate 0.0001 very slow, need many iterations (more than 5000 for even synthetic data)
+
+
+The comparison between: constant lr with 0.0005, 1/Lipschitz, 1/Li, Armijo, Nesterov Sampling 1/Li
+The best accuracy : 1/Li, Nesterov 1/Li , constant
+The fastest : constant, 1/Lipschitz
+The slowest: Nesterov 1/Li,  1/Li, Armijo
+About loss : lowest : 1/Li, Nesterov 1/Li , constant
+Armijo rule does not decrease loss well enough.
