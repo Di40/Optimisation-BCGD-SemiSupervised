@@ -1,0 +1,2 @@
+I changed the learning rates of the fixed GD to 5e-05 and 2e-05 
+and also increased the iterations to 8000
