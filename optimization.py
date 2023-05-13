@@ -3,6 +3,7 @@ from numpy.random import randn
 from matplotlib import pyplot as plt
 from time import process_time
 import datetime
+import math
 
 
 class Descent:
@@ -73,7 +74,7 @@ class Descent:
         The accuracy of the model on the labelled data at each iteration.
     """
 
-    def __init__(self, learning_rate=1e-5, max_iterations=100, verbose=False):
+    def __init__(self, learning_rate=1e-5, max_iterations=100, verbose=True):
 
         # data parameters
         self.total_samples = None
@@ -100,10 +101,11 @@ class Descent:
         self.accuracy = []
         self.verbose = verbose
 
-        # for early_stopping
+        # for early stopping
         self.loss_increase_counter = 0
 
-    def load_data(self, total_samples, unlabelled_ratio, x, y, unlabeled_indices, labeled_indices, weight_lu, weight_uu):
+    def load_data(self, total_samples, unlabelled_ratio, x, y,
+                  unlabeled_indices, labeled_indices, weight_lu, weight_uu):
 
         self.total_samples = total_samples
         self.unlabelled_ratio = unlabelled_ratio
@@ -117,13 +119,13 @@ class Descent:
         # hold initially labeled then unlabeled points
         self.true_labels_of_unlabeled = np.copy(self.y[self.unlabeled_indices])
 
-        #self.plot_points()
+        # self.plot_points()
 
         # assign initialization labels to unlabeled indices
         self.y = self.y.astype(float)
         self.y[self.unlabeled_indices] = np.random.uniform(-1.0, 1.0, size=len(self.unlabeled_indices))
 
-    def calculate_loss(self,y_labelled, y_unlabelled):
+    def calculate_loss(self, y_labelled, y_unlabelled):
 
         Y_labeled = np.copy(y_labelled).astype("float32").reshape((-1, 1))  # shape (len(labeled),1)
         Y_unlabeled = np.copy(y_unlabelled).astype("float32").reshape((-1, 1))  # shape (len(unlabeled),1)
@@ -136,7 +138,7 @@ class Descent:
         y_diff = (Y_unlabeled - Y_unlabeled.T) ** 2  # shape (len(unlabeled),len(unlabeled))
         loss_uu = np.sum(y_diff * self.weight_uu.T)  # shape (len(unlabeled),len(unlabeled))
 
-        return (loss_lu + loss_uu / 2)  # scalar
+        return loss_lu + loss_uu / 2  # scalar
 
     def calculate_accuracy(self):
         rounded_y = np.where(self.y >= 0, 1, -1)
@@ -151,7 +153,7 @@ class Descent:
         fig, ax = plt.subplots()
         plt.grid(alpha=0.3)
         ax.set_title(
-            '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\nGradient'
+            '{}\nAccuracy: {:.2f}%\nLearning Rate: {}'
             .format(self.name,
                     self.accuracy[-1] * 100,
                     self.learning_rate))
@@ -193,7 +195,7 @@ class Descent:
         fig, ax = plt.subplots()
         plt.grid(alpha=0.3)
         ax.set_title(
-            '{}\nAccuracy: {:.2f}%\nLearning Rate: {}\n'
+            '{}\nAccuracy: {:.2f}%\nLearning Rate: {}'
             .format(self.name,
                     self.accuracy[-1] * 100,
                     self.learning_rate))
@@ -249,18 +251,16 @@ class Descent:
         plt.grid(alpha=0.3)
         plt.show()
 
-    def _calculate_gradient(self):
-        raise NotImplementedError("Subclass must implement abstract method")
-
     def _early_stopping(self):
 
-        if self.loss[-1] == np.nan:
-            print("Stopping... Loss reached NaN value.")
+        if math.isnan(self.loss[-1]) or math.isinf(self.loss[-1]):
+            print("Stopping... Loss value too big value.")
+            self.loss.pop()
             return True
 
         if self.loss[-1] > self.loss[-2]:
             self.loss_increase_counter += 1
-            if self.loss_increase_counter > 10:
+            if self.loss_increase_counter > 50:
                 print("Stopping... Loss increases.")
                 return True
 
@@ -268,7 +268,7 @@ class Descent:
         delta_old = self.loss[-2] - self.loss[-3]
         if delta_old == 0:
             delta_old += 1e-8
-        if ( delta_new / delta_old ) < 0.01:
+        if (delta_new / delta_old) < 0.01:
             print("Stopping... Reached loss function plateau.")
             return True
 
@@ -276,7 +276,7 @@ class Descent:
 
     def _print_iteration_results(self, iteration):
         if self.verbose:
-            print("grad: {:.3f} --- iteration: {} --- accuracy: {:.3f} ---- loss: {:.3f} --- next_stepsize: {}"
+            print("grad: {:.3f} --- iteration: {} --- accuracy: {:.3f} ---- loss: {:.3f} --- step-size: {}"
                   .format(np.linalg.norm(np.array(self.gradient[-1])),
                           iteration,
                           self.accuracy[-1],
@@ -286,14 +286,14 @@ class Descent:
     def _hessian_matrix(self):
         h_mat = np.copy(-self.weight_uu)
         for i in range(len(self.unlabeled_indices)):
-            h_mat[i][i] += 2 * (np.sum(self.weight_lu[:, i]) + np.sum(self.weight_uu[:, i])) - self.weight_uu[i,i]
+            h_mat[i][i] += 2 * (np.sum(self.weight_lu[:, i]) + np.sum(self.weight_uu[:, i])) - self.weight_uu[i, i]
         return h_mat
 
     def _lipschitz_constant(self):
         eig_vals, _ = np.linalg.eig(self._hessian_matrix())
         return max(eig_vals)
 
-    def _armijo_rule(self, alpha = 0.05, delta = 0.95, gamma = 0.49):
+    def _armijo_rule(self, alpha=0.05, delta=0.95, gamma=0.49):
         """
         Args:
         - alpha: float, the initial learning rate
@@ -311,15 +311,16 @@ class Descent:
 
         # Iterate up to max_iterion
         while True:
-            # Check the Armijo condition, i.e., if the expected loss is smaller than the current loss plus some threshold
-            expected_loss = self.calculate_loss(self.y[self.labeled_indices],self.y[self.unlabeled_indices] + alpha * dk)
-            #print(f"expected loss:{expected_loss}, current_loss+change:{current_loss + gamma * alpha * np.dot(grad.T, dk)} ")
-            if  expected_loss <= current_loss + gamma * alpha * dot_product :
+            # Check the Armijo condition
+            expected_loss = self.calculate_loss(self.y[self.labeled_indices],
+                                                self.y[self.unlabeled_indices] + alpha * dk)
+            if expected_loss <= current_loss + gamma * alpha * dot_product:
                 # If the condition is met, return the chosen learning rate
                 return alpha
             else:
                 # If the condition is not met, decrease the learning rate by a constant factor
                 alpha *= delta
+
 
 class GradientDescent(Descent):
 
@@ -331,10 +332,10 @@ class GradientDescent(Descent):
         self.name = "GradientDescent"
         self.learning_rate_strategy = learning_rate_strategy
 
-    def _learning_rate(self):
-        if self.learning_rate_strategy == 'armijo' or self.learning_rate_strategy == 1:
+    def _learning_rate(self, iteration):
+        if iteration > 0 and (self.learning_rate_strategy == 'armijo' or self.learning_rate_strategy == 1):
             self.learning_rate = self._armijo_rule()
-        elif self.learning_rate_strategy == 'lipschitz' or self.learning_rate_strategy == 2:
+        elif iteration == 0 and (self.learning_rate_strategy == 'lipschitz' or self.learning_rate_strategy == 2):
             L = self._lipschitz_constant()
             self.learning_rate = 1 / L
 
@@ -351,14 +352,14 @@ class GradientDescent(Descent):
             self.unlabeled_indices]) * self.weight_uu.T  # shape (len unlabelled, len unlabelled)
         grad_uu = np.sum(weighted_diff, axis=1)  # shape (len unlabelled, 1)  , sum all columns
 
-        self.gradient.append( (grad_lu + grad_uu) * 2 )  # shape(len unlabelled,1)
+        self.gradient.append((grad_lu + grad_uu) * 2)  # shape(len unlabelled,1)
 
     def optimize(self):
 
         ITERATION = 0
 
         # If we use 1/L for LR, we need to set it before the loop
-        self._learning_rate()
+        self._learning_rate(ITERATION)
 
         while ITERATION < self.max_iterations:
 
@@ -373,7 +374,7 @@ class GradientDescent(Descent):
             self._calculate_gradient()
 
             # Modify learning rate (if armijo)
-            self._learning_rate()
+            self._learning_rate(ITERATION)
 
             # Update the estimated y
             self.y[self.unlabeled_indices] = self.y[self.unlabeled_indices] - self.learning_rate * self.gradient[-1]
@@ -390,16 +391,17 @@ class GradientDescent(Descent):
             if ITERATION > 2 and self._early_stopping():
                 break
 
+
 class BCGD(Descent):
-    def __init__(self, max_iterations=100, use_nesterov_probs = True,
-                 learning_rate_strategy ='constant', learning_rate=1e-5, ):
+    def __init__(self, max_iterations=100, use_nesterov_probs=True,
+                 learning_rate_strategy='constant', learning_rate=1e-5, ):
         super().__init__()
         self.learning_rate = learning_rate
         self.max_iterations = max_iterations
         self.name = "Block_Descent"
         self.use_nesterov_probs = use_nesterov_probs
         self.learning_rate_strategy = learning_rate_strategy
-        self.curr_rand_block= 0
+        self.curr_rand_block = 0
 
     def _larger_lipschitz_constant(self):
         Li = np.diag(self._hessian_matrix())
@@ -412,16 +414,17 @@ class BCGD(Descent):
         elif self.learning_rate_strategy == 'armijo' or self.learning_rate_strategy == 1:
             self.learning_rate = self._armijo_rule()
 
+
 class Randomized_BCGD(BCGD):
-    def __init__(self, max_iterations=100, use_nesterov_probs = False,
-                 learning_rate_strategy ='constant', learning_rate=1e-5):
+    def __init__(self, max_iterations=100, use_nesterov_probs=False,
+                 learning_rate_strategy='constant', learning_rate=1e-5):
         super().__init__()
         self.learning_rate = learning_rate
         self.max_iterations = max_iterations
         self.name = "R_BCGD"
         self.use_nesterov_probs = use_nesterov_probs
         self.learning_rate_strategy = learning_rate_strategy
-        self.curr_rand_block= 0
+        self.curr_rand_block = 0
 
     def _calculate_gradient(self, block):
         # shape grad_lu --> scalar
@@ -432,11 +435,10 @@ class Randomized_BCGD(BCGD):
 
         grad_uu = np.sum((self.y[self.unlabeled_indices[block]] - self.y[self.unlabeled_indices])
                          * self.weight_uu.T[block])  # shape vector num of unlabelled
-        self.gradient.append( (grad_lu + grad_uu) * 2 )
+        self.gradient.append((grad_lu + grad_uu) * 2)
 
     def optimize(self):
 
-        stop_condition = False
         ITERATION = 0
 
         if self.learning_rate_strategy == 'lipschitz' or self.learning_rate_strategy == 2:
@@ -449,7 +451,7 @@ class Randomized_BCGD(BCGD):
             ITERATION += 1
 
             # Compute objective function for estimated y
-            self.loss.append(self.calculate_loss(self.y[self.labeled_indices],self.y[self.unlabeled_indices]))
+            self.loss.append(self.calculate_loss(self.y[self.labeled_indices], self.y[self.unlabeled_indices]))
             self.calculate_accuracy()
 
             # Choosing random block
@@ -464,41 +466,41 @@ class Randomized_BCGD(BCGD):
             self._calculate_gradient(self.curr_rand_block)
 
             # Choose learning rate
-            self.learning_rate = self._learning_rate()
+            self._learning_rate()
 
             # Update the estimated y
-            self.y[self.unlabeled_indices[self.curr_rand_block]] = self.y[self.unlabeled_indices[self.curr_rand_block]] - \
-                                                         self.learning_rate * self.gradient[-1]
+            self.y[self.unlabeled_indices[self.curr_rand_block]] = \
+                self.y[self.unlabeled_indices[self.curr_rand_block]] - self.learning_rate * self.gradient[-1]
 
             self._print_iteration_results(ITERATION)
 
             t_after = process_time()
             self.cpu_time.append(t_after - t_before)
 
-            if  ITERATION > 2 and self._early_stopping():
-                print("Stopping... Reached loss function plateau.")
+            if ITERATION > 2 and self._early_stopping():
                 break
 
+
 class GS_BCGD(BCGD):
-    def __init__(self, max_iterations=100, learning_rate_strategy ='constant', learning_rate=1e-5):
+    def __init__(self, max_iterations=100, learning_rate_strategy='constant', learning_rate=1e-5):
         super().__init__()
-        self.learning_rate          = learning_rate
-        self.max_iterations         = max_iterations
-        self.name                   = "GS_BCGD"
+        self.learning_rate = learning_rate
+        self.max_iterations = max_iterations
+        self.name = "GS_BCGD"
         self.learning_rate_strategy = learning_rate_strategy
-        self.curr_rand_block        = 0
+        self.curr_rand_block = 0
 
     def _get_largest_gradient_index(self):
 
-        weighted_diff  = (self.y[self.unlabeled_indices].reshape((-1, 1)) -
-                          self.y[self.labeled_indices]) * self.weight_lu.T  # shape (len unlabelled, len labelled)
-        grad_lu        = np.sum(weighted_diff, axis=1)  # shape (len unlabelled, 1)  , sum all columns
+        weighted_diff = (self.y[self.unlabeled_indices].reshape((-1, 1)) -
+                         self.y[self.labeled_indices]) * self.weight_lu.T  # shape (len unlabelled, len labelled)
+        grad_lu = np.sum(weighted_diff, axis=1)  # shape (len unlabelled, 1)  , sum all columns
 
-        weighted_diff  = (self.y[self.unlabeled_indices].reshape((-1, 1)) -
-                          self.y[self.unlabeled_indices]) * self.weight_uu.T  # shape (len unlabelled, len unlabelled)
-        grad_uu        = np.sum(weighted_diff, axis=1)  # shape (len unlabelled, 1)  , sum all columns
+        weighted_diff = (self.y[self.unlabeled_indices].reshape((-1, 1)) -
+                         self.y[self.unlabeled_indices]) * self.weight_uu.T  # shape (len unlabelled, len unlabelled)
+        grad_uu = np.sum(weighted_diff, axis=1)  # shape (len unlabelled, 1)  , sum all columns
 
-        full_grad      = 2 * (grad_lu + grad_uu)  # shape(len unlabelled,1)
+        full_grad = 2 * (grad_lu + grad_uu)  # shape(len unlabelled,1)
         max_grad_index = np.argmax(np.abs(full_grad))
 
         return full_grad[max_grad_index], max_grad_index
@@ -524,8 +526,8 @@ class GS_BCGD(BCGD):
             self._learning_rate()
 
             # Update the estimated y
-            self.y[self.unlabeled_indices[max_gradient_index]] = self.y[self.unlabeled_indices[max_gradient_index]] \
-                                                                 - self.learning_rate * self.gradient[-1]
+            self.y[self.unlabeled_indices[max_gradient_index]] = \
+                self.y[self.unlabeled_indices[max_gradient_index]] - self.learning_rate * self.gradient[-1]
 
             self._print_iteration_results(ITERATION)
 

@@ -45,22 +45,6 @@ def real_data(unlabelled_ratio = 0.9):
     y = data[:,-1]
     weight_lu, weight_uu = create_similarity_matrices(x,labeled_indices,unlabeled_indices)
 
-    # print(f"x: {x}")
-    # print("*"*100)
-    # print(f"y: {y}")
-    # print("*"*100)
-    # print(f"total_samples: {total_samples}")
-    # print("*"*100)
-    # print(f"num_unlabeled_samples: {num_unlabeled_samples}")
-    # print("*"*100)
-    # print(f"unlabeled_indices: {unlabeled_indices}, shape: {np.shape(unlabeled_indices)}")
-    # print("*"*100)
-    # print(f"labelled_indices: {labeled_indices}, shape: {np.shape(labeled_indices)}")
-    # print("*"*100)
-    # print(f"weight_lu {weight_lu}, shape: {np.shape(weight_lu)}")
-    # print("*"*100)
-    # print(f"weight_uu {weight_uu}, shape: {np.shape(weight_uu)}")
-
     return total_samples, unlabelled_ratio, x, y, unlabeled_indices, labeled_indices, weight_lu, weight_uu
 
 def create_similarity_matrices(x,labeled_indices,unlabeled_indices):
@@ -90,10 +74,10 @@ def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_x=False, lo
                 markerfacecolor='white'
         )
         # If you want to change the span of the x-axis change the values here. Feel free to use fixed values as well.
-        # if x_label == "CPU Time":
-        #     ax.set_xlim(0, x[-1] * 0.25)
-        # else:
-        #     ax.set_xlim(0, len(x) * 0.5)
+        if x_label == "CPU Time":
+             ax.set_xlim(0, x[-1] * 0.5)
+        else:
+             ax.set_xlim(0, len(x) * 0.5)
 
     plt.legend(legend, prop={'size': legend_size})
     plt.title(title, fontsize=font)
@@ -117,16 +101,13 @@ def plot_bar_per_model(result_df, metric="loss"):
             result_list.append(result_df.loc[idx, "accuracy"][-1])
         elif metric == "iterations":
             result_list.append(len(result_df.loc[idx, "loss"]))
-            print(len(result_df.loc[idx, "loss"]))
         elif metric == "cpu_time":
             result_list.append(sum(result_df.loc[idx, "cpu_time"]))
         else:
             raise Exception("Wrong metric.")
 
     plt.figure(figsize=(7, 5))
-    # Plot the values as a bar graph
     plt.bar(result_df["optim_alg"].tolist(), result_list)
-    # range(len(result_list)) are the values on the x-axis
 
     for i, v in enumerate(result_list):
         plt.text(i, v / 2, f'{v:.2f}', ha='center', va='center', rotation=90)
@@ -178,7 +159,6 @@ def plot_bar_metrics(result_df):
         labels = [f"{r:.2f}" for r in raw_val]
         ax.bar_label(container, labels=labels)
 
-
     label_size = 15
     font_size = 17
 
@@ -189,7 +169,3 @@ def plot_bar_metrics(result_df):
     ax.legend(loc='upper right', labels=legend_list)
     plt.grid()
     plt.show()
-
-
-
-

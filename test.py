@@ -1,6 +1,5 @@
 from optimization import GradientDescent, Randomized_BCGD, GS_BCGD
 from utils import real_data, data_creation, plot_curves, plot_bar_metrics, plot_bar_per_model
-import time
 import pandas as pd
 import numpy as np
 
@@ -13,24 +12,26 @@ if __name__ == '__main__':
     #################################################
 
     # TODO: Marija - Pick best of these
-    # gd_fixed_1 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.0001)
+    # gd_fixed_1 = GradientDescent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.0001)
     # gd_fixed_1.name = 'LR Fixed ' + str(gd_fixed_1.learning_rate)
-    # gd_fixed_2 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.0005)
+    # gd_fixed_2 = GradientDescent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.0005)
     # gd_fixed_2.name = 'LR Fixed ' + str(gd_fixed_2.learning_rate)
-    # gd_fixed_3 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.001)
+    # gd_fixed_3 = GradientDescent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.001)
     # gd_fixed_3.name = 'LR Fixed ' + str(gd_fixed_3.learning_rate)
-    # gd_fixed_4 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.005)
-    # gd_fixed_4.name = 'LR Fixed ' + str(gd_fixed_4.learning_rate)
-    # gd_fixed_5 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.01)
-    # gd_fixed_5.name = 'LR Fixed ' + str(gd_fixed_5.learning_rate)
+    #gd_fixed_4 = GradientDescent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.005)
+    #gd_fixed_4.name = 'LR Fixed ' + str(gd_fixed_4.learning_rate)
+    #gd_fixed_5 = GradientDescent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant', learning_rate=0.01)
+    #gd_fixed_5.name = 'LR Fixed ' + str(gd_fixed_5.learning_rate)
 
     # If gd_fixed_5 is the best:
-    # gd1 = gd_fixed5
+    gd1 = GradientDescent(threshold=0.01, max_iterations=5000, learning_rate_strategy='constant',
+                                 learning_rate=0.0005)
+    gd1.name = 'LR Fixed ' + str(gd1.learning_rate)
 
-    # gd2 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='lipschitz')
-    # gd2.name = 'LR 1/Lipschitz'
-    # gd3 = Gradient_Descent(threshold=0.01, max_iterations=5000, learning_rate_strategy='armijo')
-    # gd3.name = 'LR ArmijoRule'
+    gd2 = GradientDescent(threshold=0.01, max_iterations=5000, learning_rate_strategy='lipschitz')
+    gd2.name = 'LR 1/Lipschitz'
+    gd3 = GradientDescent(threshold=0.01, max_iterations=5000, learning_rate_strategy='armijo')
+    gd3.name = 'LR ArmijoRule'
     # TODO: Marija - Compare gd1 vs gd2 vs gd3 -> Pick best Gradient Method
 
     #################################################
@@ -77,31 +78,35 @@ if __name__ == '__main__':
     # gs_bcgd_fixed_5.name = 'LR Fixed ' + str(gs_bcgd_fixed_5.learning_rate)
 
     # After selecting the best Fixed LR = 0.00025:
-    gs_bcgd1 = GS_BCGD(max_iterations=10000, learning_rate_strategy='constant', learning_rate=0.00025)
-    gs_bcgd1.name = 'LR Fixed'
-    gs_bcgd2 = GS_BCGD(max_iterations=5000, learning_rate_strategy='lipschitz')
-    gs_bcgd2.name = 'LR 1/Lipschitz'
-    gs_bcgd3 = GS_BCGD(max_iterations=5000, learning_rate_strategy='block_based')
-    gs_bcgd3.name = 'LR 1/Li'
-    gs_bcgd4 = GS_BCGD(max_iterations=5000, learning_rate_strategy='armijo')
-    gs_bcgd4.name = 'LR ArmijoRule'
+    # gs_bcgd1 = GS_BCGD(max_iterations=10000, learning_rate_strategy='constant', learning_rate=0.00025)
+    # gs_bcgd1.name = 'LR Fixed'
+    # gs_bcgd2 = GS_BCGD(max_iterations=10000, learning_rate_strategy='lipschitz')
+    # gs_bcgd2.name = 'LR 1/Lipschitz'
+    # gs_bcgd3 = GS_BCGD(max_iterations=10000, learning_rate_strategy='block_based')
+    # gs_bcgd3.name = 'LR 1/Li'
+    # gs_bcgd4 = GS_BCGD(max_iterations=10000, learning_rate_strategy='armijo')
+    # gs_bcgd4.name = 'LR ArmijoRule'
     # TODO: Dejan - Compare the following:
         # gs_bcgd1 vs gs_bcgd2 vs gs_bcgd3 vs gs_bcgd4
 
     # Enter in the list the algorithms that you are testing:
-    optimization_algorithms = [gs_bcgd1, gs_bcgd2, gs_bcgd3, gs_bcgd4]
+    optimization_algorithms = [gd1, gd2, gd3]
 
     col_names = ["optim_alg", "loss", "cpu_time", "accuracy"]
     df_results = pd.DataFrame(columns=col_names)
+
+    plotted = False
 
     for count, optim_alg in enumerate(optimization_algorithms):
         print(f"{optim_alg.name}")
         optim_alg.load_data(*data)
         optim_alg.optimize()
-        # optim_alg.plot_points()
-        # optim_alg.plot_loss(save_plot=False)
-        # optim_alg.plot_accuracy(save_plot=False)
-        # optim_alg.plot_cpu_time(save_plot=False)
+        if not plotted:
+            optim_alg.plot_points()
+            plotted = True
+        optim_alg.plot_loss(save_plot=False)
+        optim_alg.plot_accuracy(save_plot=False)
+        optim_alg.plot_cpu_time(save_plot=False)
         # optim_alg.save_output()
         df_results.loc[count] = [optim_alg.name, optim_alg.loss, optim_alg.cpu_time, optim_alg.accuracy]
 
