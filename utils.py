@@ -60,7 +60,6 @@ def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_x=False, lo
     label_size = 14
 
     _, ax = plt.subplots(figsize=(7, 5))
-
     for idx, y in enumerate(y_list):
         x = x_list[idx]
         if log_x:
@@ -74,10 +73,11 @@ def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_x=False, lo
                 markerfacecolor='white'
         )
         # If you want to change the span of the x-axis change the values here. Feel free to use fixed values as well.
-        if x_label == "CPU Time":
-             ax.set_xlim(0, x[-1] * 0.5)
-        else:
-             ax.set_xlim(0, len(x) * 0.5)
+        # if x_label == "CPU Time":
+        #      ax.set_xlim(0, x[-1] * 0.5)
+        # else:
+        #      ax.set_xlim(0, len(x) * 0.5)
+    #ax.set_xlim(1, 5)
 
     plt.legend(legend, prop={'size': legend_size})
     plt.title(title, fontsize=font)
