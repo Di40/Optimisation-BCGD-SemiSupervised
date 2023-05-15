@@ -41,8 +41,8 @@ def real_data(unlabelled_ratio = 0.9):
     unlabeled_indices = np.random.choice(total_samples, size=num_unlabeled_samples, replace=False)
     labeled_indices = np.array(list(set(np.array(range(total_samples))) - set(unlabeled_indices)))
 
-    x = data[:,:2]
-    y = data[:,-1]
+    x = data[:, :2]
+    y = data[:, -1]
     weight_lu, weight_uu = create_similarity_matrices(x,labeled_indices,unlabeled_indices)
 
     return total_samples, unlabelled_ratio, x, y, unlabeled_indices, labeled_indices, weight_lu, weight_uu
@@ -59,7 +59,7 @@ def plot_curves(y_list, x_list, x_label, y_label, title, legend, log_x=False, lo
     legend_size = 14
     label_size = 14
 
-    _, ax = plt.subplots(figsize=(7, 5))
+    _, ax = plt.subplots(figsize=(12, 9))
     for idx, y in enumerate(y_list):
         x = x_list[idx]
         if log_x:
@@ -106,7 +106,7 @@ def plot_bar_per_model(result_df, metric="loss"):
         else:
             raise Exception("Wrong metric.")
 
-    plt.figure(figsize=(7, 5))
+    plt.figure(figsize=(12, 9))
     plt.bar(result_df["optim_alg"].tolist(), result_list)
 
     for i, v in enumerate(result_list):

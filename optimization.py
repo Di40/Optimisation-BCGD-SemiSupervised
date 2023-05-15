@@ -549,49 +549,6 @@ class GS_BCGD(BCGD):
             if ITERATION > 2 and self._early_stopping():
                 break
 
-    # def _get_largest_gradient_index(self):
-    #
-    #     weighted_diff = (self.y[self.unlabeled_indices].reshape((-1, 1)) -
-    #                      self.y[self.labeled_indices]) * self.weight_lu.T  # shape (len unlabelled, len labelled)
-    #     grad_lu = np.sum(weighted_diff, axis=1)  # shape (len unlabelled, 1)  , sum all columns
-    #
-    #     weighted_diff = (self.y[self.unlabeled_indices].reshape((-1, 1)) -
-    #                      self.y[self.unlabeled_indices]) * self.weight_uu.T  # shape (len unlabelled, len unlabelled)
-    #     grad_uu = np.sum(weighted_diff, axis=1)  # shape (len unlabelled, 1)  , sum all columns
-    #
-    #     full_grad = 2 * (grad_lu + grad_uu)  # shape(len unlabelled,1)
-    #     max_grad_index = np.argmax(np.abs(full_grad))
-    #
-    #     return full_grad[max_grad_index], max_grad_index
-
-    # def optimize(self):
-    #
-    #     ITERATION = 0
-    #
-    #     while ITERATION < self.max_iterations:
-    #
-    #         t_before = process_time()
-    #         ITERATION += 1
-    #
-    #         # Compute objective function for estimated y
-    #         self.loss.append(self.calculate_loss(self.y[self.labeled_indices], self.y[self.unlabeled_indices]))
-    #         self.calculate_accuracy()
-    #
-    #         # Choosing max gradient block
-    #         grad, max_gradient_index = self._get_largest_gradient_index()
-    #         self.gradient.append(grad)
-    #
-    #         # Modify learning rate if needed
-    #         self._learning_rate()
-    #
-    #         # Update the estimated y
-    #         self.y[self.unlabeled_indices[max_gradient_index]] = \
-    #             self.y[self.unlabeled_indices[max_gradient_index]] - self.learning_rate * self.gradient[-1]
-    #
-    #         self._print_iteration_results(ITERATION)
-    #
-    #         t_after = process_time()
-    #         self.cpu_time.append(t_after - t_before)
-    #
-    #         if ITERATION > 2 and self._early_stopping():
-    #             break
+            if np.linalg.norm(np.array(self.gradient[-1])) < 1e-5:
+                print("Stopping... Reached gradient norm threshold.")
+                break
