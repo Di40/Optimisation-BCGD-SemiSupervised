@@ -104,6 +104,8 @@ class Descent:
         # for early stopping
         self.continuous_increase = False
         self.loss_increase_counter = 0
+        self.continuous_decrease = False
+        self.accuracy_decrease_counter = 0
 
     def load_data(self, total_samples, unlabelled_ratio, x, y,
                   unlabeled_indices, labeled_indices, weight_lu, weight_uu):
@@ -120,7 +122,7 @@ class Descent:
         # hold initially labeled then unlabeled points
         self.true_labels_of_unlabeled = np.copy(self.y[self.unlabeled_indices])
 
-        # self.plot_points()
+        self.plot_points()
 
         # assign initialization labels to unlabeled indices
         self.y = self.y.astype(float)
@@ -267,6 +269,16 @@ class Descent:
         else:
             self.continuous_increase = False
             self.loss_increase_counter = 0
+
+        if self.accuracy[-1] < self.accuracy[-2]:
+            self.accuracy_decrease_counter += 1
+            if self.accuracy_decrease_counter > 5 and self.continuous_decrease:
+                print("Stopping... Accuracy Decreases.")
+                return True
+            self.continuous_decrease = True
+        else:
+            self.continuous_decrease = False
+            self.accuracy_decrease_counter = 0
 
         # delta_new = self.loss[-1] - self.loss[-2]
         # delta_old = self.loss[-2] - self.loss[-3]
@@ -494,17 +506,32 @@ class GS_BCGD(BCGD):
         self.use_Li_for_block_selection = use_Li_for_block_selection
 
     def _get_full_gradient(self):
-        grad_len = len(self.unlabeled_indices)
-        full_grad = np.empty(grad_len)
-        for j in range(grad_len):
-            first_term  = 0
-            second_term = 0
-            for i in range(len(self.labeled_indices)):
-                first_term += self.weight_lu[i, j] * (self.y[self.unlabeled_indices[j]] - self.y[self.labeled_indices[i]])
-            for i in range(len(self.unlabeled_indices)):
-                second_term += self.weight_uu[i, j] * (self.y[self.unlabeled_indices[j]] - self.y[self.unlabeled_indices[i]])
-            full_grad[j] = (2 * (first_term + second_term))
-        return full_grad
+        # shape : (self.y[self.unlabeled_indices] -> (len,)
+        # shape: (self.y[self.unlabeled_indices].reshape((-1,1)) -> (len,1)
+        # This helps us to use broadcasting
+        # shape : (self.y[self.unlabeled_indices].reshape((-1,1)) - self.y[self.labeled_indices] -> (len unlabelled, len labelled)
+        weighted_diff = (self.y[self.unlabeled_indices].reshape((-1, 1)) - self.y[
+            self.labeled_indices]) * self.weight_lu.T  # shape (len unlabelled, len labelled)
+        grad_lu = np.sum(weighted_diff, axis=1)  # shape (len unlabelled, 1)  , sum all columns
+
+        weighted_diff = (self.y[self.unlabeled_indices].reshape((-1, 1)) - self.y[
+            self.unlabeled_indices]) * self.weight_uu.T  # shape (len unlabelled, len unlabelled)
+        grad_uu = np.sum(weighted_diff, axis=1)  # shape (len unlabelled, 1)  , sum all columns
+
+        return ((grad_lu + grad_uu) * 2)  # shape(len unlabelled,1)
+
+    # def _get_full_gradient(self):
+    #     grad_len = len(self.unlabeled_indices)
+    #     full_grad = np.empty(grad_len)
+    #     for j in range(grad_len):
+    #         first_term  = 0
+    #         second_term = 0
+    #         for i in range(len(self.labeled_indices)):
+    #             first_term += self.weight_lu[i, j] * (self.y[self.unlabeled_indices[j]] - self.y[self.labeled_indices[i]])
+    #         for i in range(len(self.unlabeled_indices)):
+    #             second_term += self.weight_uu[i, j] * (self.y[self.unlabeled_indices[j]] - self.y[self.unlabeled_indices[i]])
+    #         full_grad[j] = (2 * (first_term + second_term))
+    #     return full_grad
 
     def optimize(self):
 

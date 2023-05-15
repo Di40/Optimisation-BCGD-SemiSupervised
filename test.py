@@ -7,7 +7,7 @@ if __name__ == '__main__':
 
     # data : tuple, x,y, labelled unlabelled indices, weight matrices
     # data = data_creation(total_samples=1000, unlabelled_ratio=0.9)
-    data = real_data(unlabelled_ratio=0.9)
+    data = real_data(unlabelled_ratio=0.97)
 
     #################################################
 
@@ -97,12 +97,12 @@ if __name__ == '__main__':
 
     # We keep one configuration for each method (GD, R_BCGD and GS_BCGD) and compare their performances on the dummy
     # dataset and on a real dataset. Also, we increase the number of iterations to enable for more training time.
-
-    gd = GradientDescent(threshold=0.01, max_iterations=5000, learning_rate_strategy='lipschitz')
+    iterations = 1000
+    gd = GradientDescent(threshold=0.01, max_iterations=iterations, learning_rate_strategy='lipschitz')
     gd.name = gd.name + ' LR 1/Lipschitz'
-    r_bcgd = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='block_based')
+    r_bcgd = Randomized_BCGD(max_iterations=iterations, learning_rate_strategy='block_based')
     r_bcgd.name = r_bcgd.name + ' LR 1/Li'
-    gs_bcgd = GS_BCGD(max_iterations=5000, use_Li_for_block_selection=True, learning_rate_strategy='block_based')  # Li
+    gs_bcgd = GS_BCGD(max_iterations=iterations, use_Li_for_block_selection=True, learning_rate_strategy='block_based')  # Li
     gs_bcgd.name = gs_bcgd.name + ' LR 1/Li, |grad/Li|'
 
     # Enter in the list the algorithms that you are testing:
@@ -117,9 +117,9 @@ if __name__ == '__main__':
         print(f"{optim_alg.name}")
         optim_alg.load_data(*data)
         optim_alg.optimize()
-        # if not plotted:
-        #     optim_alg.plot_points()
-        #     plotted = True
+        if not plotted:
+            optim_alg.plot_points()
+            plotted = True
         optim_alg.plot_loss(save_plot=False)
         optim_alg.plot_accuracy(save_plot=False)
         optim_alg.plot_cpu_time(save_plot=False)

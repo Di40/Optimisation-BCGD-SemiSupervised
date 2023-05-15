@@ -3,6 +3,7 @@ from sklearn.datasets import make_blobs
 from sklearn.metrics import euclidean_distances
 import matplotlib.pyplot as plt
 from math import log
+from sklearn.preprocessing import MinMaxScaler
 
 # Data Creation Functions
 def data_creation(total_samples,unlabelled_ratio):
@@ -25,14 +26,14 @@ def data_creation(total_samples,unlabelled_ratio):
 
     return total_samples,unlabelled_ratio, x, y, unlabeled_indices,labeled_indices,weight_lu,weight_uu
 
-def real_data(unlabelled_ratio = 0.9):
+def real_data(unlabelled_ratio=0.9):
 
     # set the seed for reproducibility - in order to affect data point generation as well
     np.random.seed(10)
 
     data = np.genfromtxt('credit_card_defaulter.csv', delimiter=',', skip_header=1)
 
-    total_samples = len(data)
+    total_samples = 1000 # len(data)
 
     # make %unlabelled_ratio of data points unlabeled
     num_unlabeled_samples = int(unlabelled_ratio * total_samples)
@@ -42,8 +43,11 @@ def real_data(unlabelled_ratio = 0.9):
     labeled_indices = np.array(list(set(np.array(range(total_samples))) - set(unlabeled_indices)))
 
     x = data[:, :2]
+    scaler = MinMaxScaler()
+    x = scaler.fit_transform(x)
     y = data[:, -1]
-    weight_lu, weight_uu = create_similarity_matrices(x,labeled_indices,unlabeled_indices)
+    # y[y == 0] = -1  # Convert 0s to -1s using boolean indexing
+    weight_lu, weight_uu = create_similarity_matrices(x, labeled_indices, unlabeled_indices)
 
     return total_samples, unlabelled_ratio, x, y, unlabeled_indices, labeled_indices, weight_lu, weight_uu
 
