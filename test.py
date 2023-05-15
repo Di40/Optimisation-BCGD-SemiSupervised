@@ -98,19 +98,15 @@ if __name__ == '__main__':
     # We keep one configuration for each method (GD, R_BCGD and GS_BCGD) and compare their performances on the dummy
     # dataset and on a real dataset. Also, we increase the number of iterations to enable for more training time.
 
-    # Best algorithms:
-
-    # gd = GradientDescent(threshold=0.01, max_iterations=5000, learning_rate_strategy='lipschitz')
-    # gd.name = gd.name + ' LR 1/Lipschitz'
-    # r_bcgd = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='block_based')
-    # r_bcgd.name = r_bcgd.name + ' LR 1/Li'
+    gd = GradientDescent(threshold=0.01, max_iterations=5000, learning_rate_strategy='lipschitz')
+    gd.name = gd.name + ' LR 1/Lipschitz'
+    r_bcgd = Randomized_BCGD(max_iterations=5000, learning_rate_strategy='block_based')
+    r_bcgd.name = r_bcgd.name + ' LR 1/Li'
     gs_bcgd = GS_BCGD(max_iterations=5000, use_Li_for_block_selection=True, learning_rate_strategy='block_based')  # Li
     gs_bcgd.name = gs_bcgd.name + ' LR 1/Li, |grad/Li|'
 
-
     # Enter in the list the algorithms that you are testing:
-    # optimization_algorithms = [gs_bcgd, r_bcgd, gd]
-    optimization_algorithms = [gs_bcgd]
+    optimization_algorithms = [gd, r_bcgd, gs_bcgd]
 
     col_names = ["optim_alg", "loss", "cpu_time", "accuracy"]
     df_results = pd.DataFrame(columns=col_names)
