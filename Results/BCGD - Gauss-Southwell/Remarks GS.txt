@@ -1,4 +1,4 @@
-Has to experiment with more fixed learning rates.
+Had to experiment with more fixed learning rates.
 Also I increased number of iterations (to 10000), because the LR is small. But for 5000 iterations we still get > 90% accuracy.
 
 All the other methods fail:
